@@ -6,3 +6,5 @@ pub mod strategys;
 pub mod utils;
 pub mod tasks;
 pub mod indicators;
+pub mod computes;
+pub mod calculates;

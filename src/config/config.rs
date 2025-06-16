@@ -6,7 +6,7 @@ use longport::Config;
 use std::error::Error;
 
 // 新增: SymbolConfig 结构体，用于描述每个股票的配置
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize,Clone)]
 pub struct SymbolConfig {
     pub symbol: String,       // 股票代码
     pub volume: f64,          // 开仓比例

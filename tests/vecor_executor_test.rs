@@ -39,6 +39,7 @@ async fn test_vecor_executor() {
 
         async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn std::error::Error>> {
             // 模拟执行逻辑
+            
             Ok(())
         }
 

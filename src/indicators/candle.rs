@@ -1,3 +1,5 @@
+
+#[derive(Clone)]
 pub struct Candle {
     pub timestamp: u64,
     pub open: f64,

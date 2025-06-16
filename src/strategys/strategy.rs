@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use longport::{QuoteContext, TradeContext};
-use crate::config::config::Configs;
 use crate::models::market::MarketData;
 
 pub trait Strategy {

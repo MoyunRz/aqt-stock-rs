@@ -1,10 +1,9 @@
 use std::sync::Arc;
 use longport::{Decimal, Market, QuoteContext, TradeContext};
 use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions};
-use longport::trade::{AccountBalance, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
+use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
 use time::macros::datetime;
 use time::OffsetDateTime;
-use crate::models::market::MarketData;
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
 pub struct Service {
@@ -71,9 +70,8 @@ impl Service {
     ) -> Vec<Order> {
         let opts = GetTodayOrdersOptions::new()
             .symbol(symbol)
-            .status([OrderStatus::Filled, OrderStatus::New])
-            .side(OrderSide::Buy)
-            .market(Market::HK);
+            .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew])
+            .market(Market::US);
         let resp = self.trade_ctx.today_orders(opts).await.unwrap_or_else(|e| {
             eprintln!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
@@ -147,27 +145,55 @@ impl Service {
     /// 返回一个包含账户持仓的响应。如果发生错误，则打印错误信息并返回一个空的持仓列表。
     pub async fn fund_positions(
         &self,
-    ) -> FundPositionsResponse {
+    ) -> Vec<FundPositionChannel> {
         let resp = self.trade_ctx.fund_positions(None).await.unwrap_or_else(|e| {
             eprintln!("获取账户持仓出错: {}", e); // 直接打印错误信息
             FundPositionsResponse { channels: Vec::new() }
         });
-        resp
+        if resp.channels.is_empty() {
+            return Vec::new();
+        }
+        resp.channels
     }
-    
+
+    /// 获取账户持仓。
+    ///
+    /// # 返回值
+    /// 返回一个包含账户持仓的响应。如果发生错误，则打印错误信息并返回一个空的持仓列表。
+    pub async fn stock_positions(
+        &self,
+    ) -> Vec<StockPositionChannel> {
+        let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
+            eprintln!("获取账户持仓出错: {}", e); // 直接打印错误信息
+            StockPositionsResponse { channels: Vec::new() }
+        });
+        if resp.channels.is_empty() {
+            return Vec::new();
+        }
+        resp.channels
+    }
+
     /// 获取行情数据
     /// 
     /// 返回值：Vec<Candlestick>
     /// 返回股票的K线数据集合
     pub async fn get_candlesticks(
         &self,
-        symbol: &str,
-        period: Period,
+        symbol: String,
+        period: String,
     ) -> Vec<Candlestick> {
         let adjust_type = AdjustType::NoAdjust;
         let trade_sessions = TradeSessions::All;
         let count = 365;
-        let resp = self.quote_ctx.candlesticks(symbol, period, count, adjust_type, trade_sessions, ).await.unwrap_or_else(|e| { 
+        let mut pd = Period::Day;
+        match period.as_str() {
+            "1d" => pd = Period::Day,
+            "1w" => pd = Period::Week,
+            "15m" => pd = Period::FifteenMinute,
+            "5m" => pd = Period::FiveMinute,
+            _ => pd = Period::UnknownPeriod
+        }
+        let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions, ).await.unwrap_or_else(|e| {
             eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });

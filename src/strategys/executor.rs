@@ -9,7 +9,7 @@ pub struct Executor<T: Strategy> {
     quote_receiver: mpsc::Receiver<MarketData>,
 }
 
-impl<T: Strategy> Executor<T> {
+impl<T: Strategy + Send> Executor<T> {
     pub fn new(
         quote_ctx: Arc<QuoteContext>,
         trade_ctx: Arc<TradeContext>,
