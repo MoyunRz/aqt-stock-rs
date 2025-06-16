@@ -1,7 +1,10 @@
 use std::sync::Arc;
 use longport::{Decimal, Market, QuoteContext, TradeContext};
+use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions};
 use longport::trade::{AccountBalance, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
+use time::macros::datetime;
 use time::OffsetDateTime;
+use crate::models::market::MarketData;
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
 pub struct Service {
@@ -13,8 +16,7 @@ impl Service {
     /// 创建一个新的 `Service` 实例。
     ///
     /// # 参数
-    /// - `quote_ctx`: 报价上下文的引用计数实例。
-    /// - `trade_ctx`: 交易上下文的引用计数实例。
+    /// - `ctx`: 上下文的引用计数实例。
     ///
     /// # 返回值
     /// 返回一个初始化完成的 `Service` 实例。
@@ -149,6 +151,41 @@ impl Service {
         let resp = self.trade_ctx.fund_positions(None).await.unwrap_or_else(|e| {
             eprintln!("获取账户持仓出错: {}", e); // 直接打印错误信息
             FundPositionsResponse { channels: Vec::new() }
+        });
+        resp
+    }
+    
+    /// 获取行情数据
+    /// 
+    /// 返回值：Vec<Candlestick>
+    /// 返回股票的K线数据集合
+    pub async fn get_candlesticks(
+        &self,
+        symbol: &str,
+        period: Period,
+    ) -> Vec<Candlestick> {
+        let adjust_type = AdjustType::NoAdjust;
+        let trade_sessions = TradeSessions::All;
+        let count = 365;
+        let resp = self.quote_ctx.candlesticks(symbol, period, count, adjust_type, trade_sessions, ).await.unwrap_or_else(|e| { 
+            eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
+            Vec::new() // 返回空的订单列表
+        });
+        resp
+    }
+    
+    pub async fn get_market_temperature(
+        &self,
+    ) -> MarketTemperature {
+        let resp = self.quote_ctx.market_temperature(Market::US).await.unwrap_or_else(|e| {
+            eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
+            MarketTemperature{
+                temperature: 0,
+                description: "".to_string(),
+                valuation: 0,
+                sentiment: 0,
+                timestamp: datetime!(2024-01-01 12:59:59.5 -5),
+            }
         });
         resp
     }
