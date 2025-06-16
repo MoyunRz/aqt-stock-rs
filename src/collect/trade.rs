@@ -1,7 +1,9 @@
 use longport::{Config, quote::{SubFlags}, TradeContext, decimal};
 use std::sync::Arc;
+use longport::quote::PushEventDetail;
 use longport::trade::{OrderSide, OrderType, PushEvent, SubmitOrderOptions, TimeInForceType};
 use tokio::sync::mpsc;
+use crate::models::market::MarketData;
 
 /// TradeCollector 结构体用于管理交易订阅的上下文和接收器
 pub struct TradeCollectors {
@@ -34,8 +36,8 @@ impl TradeCollectors {
 
     /// 订阅当前保存的股票代码的交易数据
     pub async fn subscribe(&mut self) {
-        while let Some(msg) = self.receiver.recv().await {
-            println!("{:?}", msg); // 处理接收到的推送消息
+        while let Some(events) = self.receiver.recv().await {
+            
         }
     }
 

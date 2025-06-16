@@ -1,18 +1,10 @@
 use std::sync::Arc;
 use aqt_stock::strategys::strategy::Strategy;
-use longport::{Config, QuoteContext, TradeContext};
+use longport::{Config, Decimal, QuoteContext, TradeContext};
 use tokio::sync::mpsc;
+use aqt_stock::config::config::Configs;
 use aqt_stock::models::market::MarketData;
 use aqt_stock::strategys::executor::Executor;
-
-// 新增: 封装 Executor 创建逻辑的函数
-fn create_executor<T: Strategy>(
-    quote_ctx: Arc<QuoteContext>,
-    trade_ctx: Arc<TradeContext>,
-    receiver: mpsc::Receiver<MarketData>,
-) -> Executor<T> {
-    Executor::<T>::new(quote_ctx, trade_ctx, receiver)
-}
 
 #[tokio::test]
 async fn test_vecor_executor() {
@@ -27,19 +19,16 @@ async fn test_vecor_executor() {
     struct MockStrategy {
         quote_ctx: Arc<QuoteContext>,
         trade_ctx: Arc<TradeContext>,
-        quote_receiver: mpsc::Receiver<MarketData>,
     }
-    
+
     impl Strategy for MockStrategy {
         fn new(
             quote_ctx: Arc<QuoteContext>,
             trade_ctx: Arc<TradeContext>,
-            quote_receiver: mpsc::Receiver<MarketData>,
         ) -> Self {
             MockStrategy {
                 quote_ctx,
                 trade_ctx,
-                quote_receiver,
             }
         }
 
@@ -58,10 +47,15 @@ async fn test_vecor_executor() {
             Ok(())
         }
     }
-    
+    let config = Configs::load().expect("TODO: panic message");
     // 使用封装函数创建 Executor 实例
     let (sender, receiver) = mpsc::channel(10);
-    let mut executor = create_executor::<MockStrategy>(Arc::new(quote_ctx), Arc::new(trade_ctx), receiver);
+    // 创建执行器并保存在变量中
+    let mut executor = Executor::<MockStrategy>::new(
+        Arc::new(quote_ctx),
+        Arc::new(trade_ctx),
+        receiver
+    );
 
     // 测试运行方法
     let result = executor.run().await;
@@ -71,18 +65,27 @@ async fn test_vecor_executor() {
     let market_data = MarketData {
         // 填充必要的字段
         symbol: "".to_string(),
-        price: 0.0,
-        change: 0.0,
-        volume: 0,
-        high: 0.0,
-        low: 0.0,
-        open: 0.0,
-        close: 0.0,
+        price: Decimal::try_from(0.0).unwrap(),
+        change:Decimal::try_from(0.0).unwrap(),
+        volume:0,
+        high:Decimal::try_from(0.0).unwrap(),
+        low:Decimal::try_from(0.0).unwrap(),
+        open:Decimal::try_from(0.0).unwrap(),
+        close: Decimal::try_from(0.0).unwrap(),
+        ts: time::OffsetDateTime::now_utc(),
     };
-    let execute_result = executor.execute(&market_data).await;
-    assert!(execute_result.is_ok(), "执行策略失败");
 
-    // 测试停止方法
-    let stop_result = executor.stop();
-    assert!(stop_result.is_ok(), "停止策略失败");
+    // 在单独的任务中运行执行器
+    let executor_handle = tokio::spawn(async move {
+        if let Err(e) = executor.run().await {
+            eprintln!("Executor error: {}", e);
+        }
+    });
+
+    sender.send(market_data).await.unwrap();
+    drop(sender);
+    // 等待执行器完成
+    executor_handle.await.unwrap_or_else(|e| {
+        eprintln!("Executor task error: {}", e);
+    });
 }

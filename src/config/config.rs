@@ -10,7 +10,7 @@ use std::error::Error;
 pub struct SymbolConfig {
     pub symbol: String,       // 股票代码
     pub volume: f64,          // 开仓比例
-    pub line_level: String,   // K线级别
+    pub period: String,   // K线级别
     pub tp_ratio: i32,        // 止盈比例
     pub sl_ratio: i32,        // 止损比例
 }
@@ -18,8 +18,6 @@ pub struct SymbolConfig {
 /// `Configs` 结构体用于加载和解析配置文件。
 #[derive(Debug, Deserialize)]
 pub struct Configs {
-    pub database: DatabaseConfig, // 数据库配置
-    pub logging: LoggingConfig,   // 日志配置
     pub symbols: Vec<SymbolConfig>, // 股票配置列表
 }
 

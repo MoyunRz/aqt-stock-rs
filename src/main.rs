@@ -1,10 +1,11 @@
-use longport::quote::SubFlags;
-use aqt_stock::collect::quote::QuoteCollectors;
+use aqt_stock::config::config;
+use aqt_stock::tasks;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let symbols = vec![String::from("700.HK"), String::from("AAPL.US")];
-    let mut collector = QuoteCollectors::new(symbols).await;
-    collector.subscribe().await;
+    let cfg = config::Configs::load().expect("TODO: panic message");
+    tasks::sty::start_strategy(cfg).await.unwrap_or_else(|e|{
+        panic!("策略启动出错 {}", e);
+    });
     Ok(())
 }

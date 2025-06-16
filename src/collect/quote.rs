@@ -1,7 +1,8 @@
 use longport::{Config, quote::{QuoteContext, SubFlags}};
 use std::sync::Arc;
-use longport::quote::PushEvent;
+use longport::quote::{PushEvent, PushEventDetail};
 use tokio::sync::mpsc;
+use crate::models::market::MarketData;
 
 /// QuoteCollector 结构体用于管理行情订阅的上下文和接收器
 pub struct QuoteCollectors {
@@ -34,10 +35,25 @@ impl QuoteCollectors {
     }
 
     /// 订阅当前保存的股票代码的行情数据
-    pub async fn subscribe(&mut self) {
-        self.ctx.subscribe(&self.symbols, self.sub_flags, true).await.unwrap(); // 订阅行情数据
+    pub async fn subscribe(&mut self, sender: mpsc::Sender<MarketData>) {
+        self.ctx.subscribe(&self.symbols, self.sub_flags, true).await.unwrap();
         while let Some(msg) = self.receiver.recv().await {
-            println!("{:?}", msg); // 处理接收到的推送消息
+            if let PushEventDetail::Quote(detail) = msg.detail {
+                let market_data = MarketData {
+                    symbol: msg.symbol,
+                    price: detail.last_done,
+                    change: detail.last_done - detail.open,
+                    volume: detail.volume,
+                    high: detail.high,
+                    low: detail.low,
+                    open: detail.open,
+                    close: detail.last_done,
+                    ts: detail.timestamp,
+                };
+                if let Err(e) = sender.send(market_data).await {
+                    eprintln!("Failed to send market data: {}", e);
+                }
+            }
         }
     }
 

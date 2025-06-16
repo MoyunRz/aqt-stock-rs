@@ -1,3 +1,4 @@
+use tokio::sync::mpsc;
 use aqt_stock::collect::brokers::BrokersCollectors;
 use aqt_stock::collect::depth::DepthCollectors;
 use aqt_stock::collect::quote::QuoteCollectors;
@@ -5,9 +6,10 @@ use aqt_stock::collect::trade::TradeCollectors;
 
 #[tokio::test]
 async fn test_quote_subscription() {
+    let (sender, receiver) = mpsc::channel(100);
     let symbols = vec![String::from("700.HK"), String::from("AAPL.US")];
     let mut collector = QuoteCollectors::new(symbols).await;
-    collector.subscribe().await;
+    collector.subscribe(sender).await;
 }
 
 #[tokio::test]
@@ -19,6 +21,7 @@ async fn test_depth_subscription() {
 
 #[tokio::test]
 async fn test_trade_subscription() {
+   
     let symbols = vec![String::from("700.HK"), String::from("AAPL.US")];
     let mut collector = TradeCollectors::new(symbols).await;
     collector.subscribe().await;
