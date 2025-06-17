@@ -10,6 +10,7 @@
 ## 1. Makefile 使用
 
 ### 查看所有可用命令
+
 ```bash
 make help
 ```
@@ -17,6 +18,7 @@ make help
 ### 常用开发命令
 
 #### 编译和运行
+
 ```bash
 # 编译项目 (debug 模式)
 make build
@@ -35,6 +37,7 @@ make dev
 ```
 
 #### 测试相关
+
 ```bash
 # 运行测试
 make test
@@ -47,6 +50,7 @@ make bench
 ```
 
 #### 代码质量检查
+
 ```bash
 # 检查代码
 make check
@@ -62,6 +66,7 @@ make lint
 ```
 
 #### 清理和维护
+
 ```bash
 # 清理构建产物
 make clean
@@ -74,6 +79,7 @@ make update
 ```
 
 #### 打包和发布
+
 ```bash
 # 构建 release 版本
 make release
@@ -86,6 +92,7 @@ make doc
 ```
 
 #### 日志和监控
+
 ```bash
 # 查看日志
 make logs
@@ -101,6 +108,7 @@ make ps
 ```
 
 #### 环境管理
+
 ```bash
 # 检查环境
 make env-check
@@ -113,6 +121,7 @@ make backup
 ```
 
 #### 一键命令
+
 ```bash
 # 完整构建流程 (清理、编译、测试)
 make all
@@ -127,6 +136,7 @@ make quick
 ## 2. Shell 脚本使用 (aqt-manager.sh)
 
 ### 基本用法
+
 ```bash
 # 查看帮助
 ./aqt-manager.sh help
@@ -135,6 +145,7 @@ make quick
 ### 服务管理
 
 #### 启动服务
+
 ```bash
 # 启动服务 (debug 模式)
 ./aqt-manager.sh start
@@ -144,12 +155,14 @@ make quick
 ```
 
 #### 停止服务
+
 ```bash
 # 停止服务
 ./aqt-manager.sh stop
 ```
 
 #### 重启服务
+
 ```bash
 # 重启服务 (debug 模式)
 ./aqt-manager.sh restart
@@ -159,6 +172,7 @@ make quick
 ```
 
 #### 查看状态
+
 ```bash
 # 查看运行状态
 ./aqt-manager.sh status
@@ -167,6 +181,7 @@ make quick
 ### 日志管理
 
 #### 查看日志
+
 ```bash
 # 查看最近50行日志
 ./aqt-manager.sh logs
@@ -179,6 +194,7 @@ make quick
 ```
 
 #### 其他日志操作
+
 ```bash
 # 查看错误日志
 ./aqt-manager.sh error-logs
@@ -190,12 +206,14 @@ make quick
 ### 监控和健康检查
 
 #### 监控模式
+
 ```bash
 # 进入监控模式 (自动刷新状态)
 ./aqt-manager.sh monitor
 ```
 
 #### 健康检查
+
 ```bash
 # 执行健康检查
 ./aqt-manager.sh health
@@ -204,6 +222,7 @@ make quick
 ## 3. 推荐工作流程
 
 ### 开发流程
+
 ```bash
 # 1. 开发时使用文件监控模式
 make dev
@@ -217,6 +236,7 @@ make all
 ```
 
 ### 生产部署流程
+
 ```bash
 # 1. 构建 release 版本
 make release
@@ -235,6 +255,7 @@ make package
 ```
 
 ### 日常维护
+
 ```bash
 # 查看服务状态
 ./aqt-manager.sh status
@@ -252,7 +273,8 @@ make package
 ## 4. 文件说明
 
 ### 生成的文件和目录
-```
+
+```shell
 .
 ├── aqt_stock.pid          # 进程ID文件
 ├── logs/                  # 日志目录
@@ -265,6 +287,7 @@ make package
 ```
 
 ### 配置文件
+
 - `config.yaml` - 应用配置文件
 - `log4rs.yaml` - 日志配置文件
 - `Cargo.toml` - Rust 项目配置
@@ -274,6 +297,7 @@ make package
 ### 常见问题
 
 #### 服务启动失败
+
 ```bash
 # 检查配置文件
 make env-check
@@ -286,6 +310,7 @@ cat logs/stdout.log
 ```
 
 #### 编译错误
+
 ```bash
 # 检查代码
 make check
@@ -299,6 +324,7 @@ make build
 ```
 
 #### 日志文件过大
+
 ```bash
 # 清理日志
 make clean-logs
@@ -309,30 +335,34 @@ make clean-logs
 ### 调试技巧
 
 1. **使用开发模式进行调试**
-   ```bash
+```bash
    make dev
-   ```
+```
 
 2. **查看实时日志**
-   ```bash
-   ./aqt-manager.sh logs follow
-   ```
+
+```bash
+./aqt-manager.sh logs follow
+```
 
 3. **监控系统状态**
-   ```bash
-   ./aqt-manager.sh monitor
-   ```
+
+```bash
+./aqt-manager.sh monitor
+```
 
 4. **健康检查**
-   ```bash
-   ./aqt-manager.sh health
-   ```
+
+```bash
+./aqt-manager.sh health
+```
 
 ## 6. 高级功能
 
 ### 自动化脚本示例
 
 #### 自动重启脚本
+
 ```bash
 #!/bin/bash
 # auto-restart.sh
@@ -346,6 +376,7 @@ done
 ```
 
 #### 日志轮转脚本
+
 ```bash
 #!/bin/bash
 # log-rotate.sh
@@ -359,6 +390,7 @@ fi
 ## 7. 快速参考
 
 ### Makefile 常用命令
+
 ```bash
 make help          # 帮助
 make dev           # 开发模式
@@ -369,6 +401,7 @@ make clean         # 清理
 ```
 
 ### Shell 脚本常用命令
+
 ```bash
 ./aqt-manager.sh start release    # 启动
 ./aqt-manager.sh stop             # 停止
@@ -377,4 +410,4 @@ make clean         # 清理
 ./aqt-manager.sh monitor          # 监控
 ```
 
-这些工具将帮助你更高效地管理和维护 AQT Stock Trading System。 
+这些工具将帮助你更高效地管理和维护 AQT Stock Trading System
