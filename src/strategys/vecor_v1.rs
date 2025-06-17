@@ -48,11 +48,28 @@ impl Strategy for VecorStrategy {
         // 判断当前的数据时间
         let ts = event.ts.unix_timestamp();
         let now_ts = OffsetDateTime::now_utc().unix_timestamp();
-        // 打印两个时间
-        println!("当前时间: {}", now_ts);
-        println!("接收时间: {}", ts);
         // 只处理收尾的K线
-        if ts > now_ts - 10 {
+        if ts % 300 <= 10 {
+            let mut sym = &SymbolConfig { symbol: "".parse().unwrap(), volume: 0.0, period: "".parse().unwrap(), tp_ratio: 0, sl_ratio:0 };
+            for cfg in self.sym_config.iter() {
+                if cfg.symbol == event.symbol {
+                    sym = cfg;
+                }
+            }
+            let candles = self.service.get_candlesticks(sym.symbol.clone(), sym.period.clone()).await;
+            // 防止为空
+            if candles.clone().is_empty() {
+                return Ok(());
+            }
+            let candles_list = VecorStrategy::handle_candles(candles.clone());
+            // 防止为空
+            if candles_list.clone().is_empty() {
+                return Ok(());
+            }
+            let candles_last = candles.last().unwrap();
+            if candles_last.timestamp.unix_timestamp() > now_ts-5 && candles_last.timestamp.unix_timestamp() < now_ts+5{
+                return Ok(());
+            }
             // 获取用户的资金
             let balance = self.service.account_balance().await;
             if balance.is_empty() {
@@ -66,22 +83,6 @@ impl Strategy for VecorStrategy {
                     usd_bal = b.buy_power;
                     total_cash = b.total_cash;
                 }
-            }
-            let mut sym = &SymbolConfig { symbol: "".parse().unwrap(), volume: 0.0, period: "".parse().unwrap(), tp_ratio: 0, sl_ratio:0 };
-            for cfg in self.sym_config.iter() {
-                if cfg.symbol == event.symbol {
-                    sym = cfg;
-                }
-            }
-            let candles = self.service.get_candlesticks(sym.symbol.clone(), sym.period.clone()).await;
-            // 防止为空
-            if candles.clone().is_empty() {
-                return Ok(());
-            }
-            let candles_list = VecorStrategy::handle_candles(candles);
-            // 防止为空
-            if candles_list.clone().is_empty() {
-                return Ok(());
             }
             // 获取市场热度
             let temperature = self.service.get_market_temperature().await;

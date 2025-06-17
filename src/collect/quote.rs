@@ -24,7 +24,7 @@ impl QuoteCollectors {
     /// 返回一个新创建的 QuoteCollector 实例
     pub async fn new(symbols: Vec<String>) -> Self {
         let config = Arc::new(Config::from_env().unwrap()); // 从环境变量中加载配置
-        println!("{:?}",config);
+        // println!("{:?}",config);
         let (ctx, receiver) = QuoteContext::try_new(config).await.expect("QuoteContext init err"); // 初始化行情上下文和接收器
         QuoteCollectors {
             ctx,
