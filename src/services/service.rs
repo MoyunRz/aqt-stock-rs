@@ -185,7 +185,7 @@ impl Service {
         let adjust_type = AdjustType::NoAdjust;
         let trade_sessions = TradeSessions::All;
         let count = 365;
-        let mut pd = Period::Day;
+        let pd ;
         match period.as_str() {
             "1d" => pd = Period::Day,
             "1w" => pd = Period::Week,

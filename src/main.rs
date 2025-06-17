@@ -1,10 +1,10 @@
 use aqt_stock::config::config;
 use aqt_stock::tasks;
-
+use tasks::sty;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = config::Configs::load().expect("TODO: panic message");
-    tasks::sty::start_sty(cfg).await.unwrap_or_else(|e|{
+    sty::start_sty(cfg).await.unwrap_or_else(|e|{
         panic!("策略启动出错 {}", e);
     });
     Ok(())

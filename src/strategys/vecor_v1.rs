@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::Arc;
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use longport::quote::{Candlestick, MarketTemperature};
@@ -33,30 +34,26 @@ impl Strategy for VecorStrategy {
         let sym_config = cfgs.unwrap().symbols;
         VecorStrategy {
             service: Service::new(quote_ctx, trade_ctx),
-            sym_config: sym_config,
+            sym_config,
         }
     }
 
     // 异步运行策略逻辑
-    async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>>{
+    async fn run(&mut self) -> Result<(), Box<dyn Error>>{
         // 模拟运行逻辑
         Ok(())
     }
 
     // 异步执行策略逻辑，处理传入的市场数据
-    async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn std::error::Error>> {
+    async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error>> {
         // 判断当前的数据时间
         let ts = event.ts.unix_timestamp();
         let now_ts = OffsetDateTime::now_utc().unix_timestamp();
         // 只处理收尾的K线
-        if ts % 300 <= 10 {
-            let mut sym = &SymbolConfig { symbol: "".parse().unwrap(), volume: 0.0, period: "".parse().unwrap(), tp_ratio: 0, sl_ratio:0 };
-            for cfg in self.sym_config.iter() {
-                if cfg.symbol == event.symbol {
-                    sym = cfg;
-                }
-            }
-            let candles = self.service.get_candlesticks(sym.symbol.clone(), sym.period.clone()).await;
+        if ts % 300 <= 3 {
+            // 获取币种信息
+            let sym = VecorStrategy::get_sym_info(self.sym_config.clone(),event.symbol.clone());
+            let candles = self.service.get_candlesticks(event.symbol.clone(), sym.period).await;
             // 防止为空
             if candles.clone().is_empty() {
                 return Ok(());
@@ -94,12 +91,12 @@ impl Strategy for VecorStrategy {
                 let positions = self.service.stock_positions().await;
                 let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
 
-                if inds == OrderSide::Buy && sym_position.cost_price < event.close {
-                    return Ok(());
-                }
-                if inds == OrderSide::Sell && sym_position.cost_price > event.close {
-                    return Ok(());
-                }
+                    if inds == OrderSide::Buy && sym_position.cost_price < event.close {
+                        return Ok(());
+                    }
+                    if inds == OrderSide::Sell && sym_position.cost_price > event.close {
+                        return Ok(());
+                    }
 
                 // 获取用户的订单
                 let orders = self.service.get_today_orders(event.symbol.clone().as_str()).await;
@@ -125,13 +122,30 @@ impl Strategy for VecorStrategy {
     }
 
     // 停止策略执行
-    fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn stop(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 }
 
 // 增加额外的函数
 impl VecorStrategy {
+
+    pub fn get_sym_info(sym_config:Vec<SymbolConfig>,symbol: String)-> SymbolConfig {
+        let mut sym = SymbolConfig { symbol: "".parse().unwrap(), volume: 0.0, period: "".parse().unwrap(), tp_ratio: 0, sl_ratio:0 };
+        for cfg in sym_config.iter() {
+            if cfg.symbol == symbol{
+                sym = SymbolConfig {
+                    symbol: cfg.symbol.clone(),
+                    volume: cfg.volume.clone(),
+                    period:cfg.period.clone(),
+                    tp_ratio: cfg.tp_ratio.clone(),
+                    sl_ratio:cfg.sl_ratio.clone(),
+                };
+            }
+        }
+        sym
+    }
+
     pub fn handle_candles(candles: Vec<Candlestick>) -> Vec<Candle> {
         let candles = candles.clone();
         let cs = candles.iter().map(|c| {

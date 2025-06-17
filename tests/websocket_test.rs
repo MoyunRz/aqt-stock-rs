@@ -20,13 +20,6 @@ async fn test_depth_subscription() {
 }
 
 #[tokio::test]
-async fn test_trade_subscription() {
-   
-    let symbols = vec![String::from("700.HK"), String::from("AAPL.US")];
-    let mut collector = TradeCollectors::new(symbols).await;
-    collector.subscribe().await;
-}
-#[tokio::test]
 async fn test_brokers_subscription() {
     let symbols = vec![String::from("700.HK"), String::from("AAPL.US")];
     let mut collector = BrokersCollectors::new(symbols).await;

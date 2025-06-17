@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::Arc;
 use longport::{QuoteContext, TradeContext};
 use tokio::sync::mpsc;
@@ -22,7 +23,7 @@ impl<T: Strategy + Send> Executor<T> {
     }
 
     // 运行执行器，接收市场数据并传递给内部策略
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         // 首先初始化内部策略
         self.executor.run().await?;
 
@@ -36,10 +37,5 @@ impl<T: Strategy + Send> Executor<T> {
         self.executor.stop()?;
 
         Ok(())
-    }
-
-    // 提供一个方法来停止执行器
-    pub fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.executor.stop()
     }
 }
