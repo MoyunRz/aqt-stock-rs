@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::sync::Arc;
+use log::{info, warn};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use longport::quote::{Candlestick, MarketTemperature};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
@@ -18,14 +19,16 @@ use crate::indicators::candle::Candle;
 use crate::services::service::Service;
 use crate::strategys::strategy::{Strategy};
 
-// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
+/// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
-    service: Service, // 服务实例，用于访问各种交易和行情数据
-    sym_config: Vec<SymbolConfig>, // 股票配置映射，存储每个股票的配置信息
+    /// 服务实例，用于访问各种交易和行情数据
+    service: Service,
+    /// 股票配置映射，存储每个股票的配置信息
+    sym_config: Vec<SymbolConfig>,
 }
 
 impl Strategy for VecorStrategy {
-    // 创建一个新的 VecorStrategy 实例
+    /// 创建一个新的 VecorStrategy 实例
     fn new(
         quote_ctx: Arc<QuoteContext>,
         trade_ctx: Arc<TradeContext>,
@@ -38,13 +41,13 @@ impl Strategy for VecorStrategy {
         }
     }
 
-    // 异步运行策略逻辑
-    async fn run(&mut self) -> Result<(), Box<dyn Error>>{
-        // 模拟运行逻辑
+    /// 异步运行策略逻辑
+    async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        info!("vecor v1 策略程序开始执行");
         Ok(())
     }
 
-    // 异步执行策略逻辑，处理传入的市场数据
+    /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error>> {
         // 判断当前的数据时间
         let ts = event.ts.unix_timestamp();
@@ -52,8 +55,9 @@ impl Strategy for VecorStrategy {
         // 只处理收尾的K线
         if ts % 300 <= 3 {
             // 获取币种信息
-            let sym = VecorStrategy::get_sym_info(self.sym_config.clone(),event.symbol.clone());
-            let candles = self.service.get_candlesticks(event.symbol.clone(), sym.period).await;
+            let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
+            let candles = self.service.get_candlesticks(event.symbol.clone(), sym.clone().period).await;
+            info!("获取{}股票K线数据", event.symbol.clone());
             // 防止为空
             if candles.clone().is_empty() {
                 return Ok(());
@@ -64,45 +68,63 @@ impl Strategy for VecorStrategy {
                 return Ok(());
             }
             let candles_last = candles.last().unwrap();
-            if candles_last.timestamp.unix_timestamp() > now_ts-5 && candles_last.timestamp.unix_timestamp() < now_ts+5{
+            if candles_last.timestamp.unix_timestamp() > now_ts - 5 && candles_last.timestamp.unix_timestamp() < now_ts + 5 {
                 return Ok(());
             }
-            // 获取用户的资金
-            let balance = self.service.account_balance().await;
-            if balance.is_empty() {
-                return Ok(());
-            }
-            // 循环balance获取美元金额
-            let mut usd_bal = Decimal::new(0, 3);
-            let mut total_cash = Decimal::new(0, 3);
-            for b in balance {
-                if b.currency == "USD" {
-                    usd_bal = b.buy_power;
-                    total_cash = b.total_cash;
-                }
-            }
+
             // 获取市场热度
             let temperature = self.service.get_market_temperature().await;
-            // 聚合判断
-            let inds = VecorStrategy::handler_indicators(candles_list, temperature);
-            // 下单
-            if inds != OrderSide::Unknown {
-                // 获取用户的持仓
-                let positions = self.service.stock_positions().await;
-                let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
+            info!("获取{}市场热度:",event.symbol.clone());
+            info!("{}热度{:?}", event.symbol.clone(),temperature.temperature);
+            info!("{}估值{:?}", event.symbol.clone(),temperature.valuation);
+            info!("{}情绪{:?}", event.symbol.clone(), temperature.sentiment);
+            info!("{}温度描述{:?}", event.symbol.clone(), temperature.description);
 
-                    if inds == OrderSide::Buy && sym_position.cost_price < event.close {
-                        return Ok(());
+            // 下单
+            // 获取用户的持仓
+            let positions = self.service.stock_positions().await;
+            let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
+
+            // TODO 判断是否达到收益预期 进行回撤、市场情绪、仓位判断 决定是否抛售
+            if VecorStrategy::handler_close_position(sym.clone(), temperature.clone(), candles, sym_position.clone()) {
+                let _ = self.service.submit_order(event.symbol.clone(), OrderSide::Sell, sym_position.quantity);
+                return Ok(());
+            }
+
+            // TODO 聚合技术判断
+            let inds = VecorStrategy::handler_indicators(candles_list, temperature);
+            info!("对{}进行技术指标聚合判断:{}",event.symbol.clone(),inds);
+            if inds == OrderSide::Buy && sym_position.cost_price < event.close {
+                return Ok(());
+            }
+            if inds == OrderSide::Sell && sym_position.cost_price > event.close {
+                return Ok(());
+            }
+            // TODO 指标指出可以买卖
+            if inds != OrderSide::Unknown {
+
+                info!("获取用户的资金");
+                // 获取用户的资金
+                let balance = self.service.account_balance().await;
+                if balance.is_empty() {
+                    return Ok(());
+                }
+                info!("获取用户的资金{:?}", balance);
+                // 循环balance获取美元金额
+                let mut usd_bal = Decimal::new(0, 3);
+                let mut total_cash = Decimal::new(0, 3);
+                for b in balance {
+                    if b.currency == "USD" {
+                        usd_bal = b.buy_power;
+                        total_cash = b.total_cash;
                     }
-                    if inds == OrderSide::Sell && sym_position.cost_price > event.close {
-                        return Ok(());
-                    }
+                }
 
                 // 获取用户的订单
                 let orders = self.service.get_today_orders(event.symbol.clone().as_str()).await;
                 let mut quantity = decimal!(0.0);
                 // 根据总资产进行下单
-                if usd_bal > decimal!(0.0) {
+                if usd_bal > decimal!(0.0) && inds == OrderSide::Buy {
                     let volume = sym.volume;
                     let cash = total_cash.checked_mul(decimal!(volume)).unwrap();
                     if usd_bal >= cash * decimal!(1.05) {
@@ -112,6 +134,12 @@ impl Strategy for VecorStrategy {
                 if !sym_position.quantity.is_zero() && inds == OrderSide::Sell {
                     quantity = sym_position.quantity;
                 }
+
+                // 数量为0直接返回
+                if quantity.is_zero() {
+                    return Ok(())
+                }
+
                 // 获取订单状态，是否可以下单
                 if VecorStrategy::handler_orders(orders, event.symbol.clone()) {
                     let _ = self.service.submit_order(event.symbol.clone(), inds, quantity);
@@ -121,25 +149,25 @@ impl Strategy for VecorStrategy {
         Ok(())
     }
 
-    // 停止策略执行
+    /// 停止策略执行
     fn stop(&mut self) -> Result<(), Box<dyn Error>> {
+        warn!("vecor v1 策略程序停止");
         Ok(())
     }
 }
 
 // 增加额外的函数
 impl VecorStrategy {
-
-    pub fn get_sym_info(sym_config:Vec<SymbolConfig>,symbol: String)-> SymbolConfig {
-        let mut sym = SymbolConfig { symbol: "".parse().unwrap(), volume: 0.0, period: "".parse().unwrap(), tp_ratio: 0, sl_ratio:0 };
+    pub fn get_sym_info(sym_config: Vec<SymbolConfig>, symbol: String) -> SymbolConfig {
+        let mut sym = SymbolConfig::new();
         for cfg in sym_config.iter() {
-            if cfg.symbol == symbol{
+            if cfg.symbol == symbol {
                 sym = SymbolConfig {
                     symbol: cfg.symbol.clone(),
                     volume: cfg.volume.clone(),
-                    period:cfg.period.clone(),
+                    period: cfg.period.clone(),
                     tp_ratio: cfg.tp_ratio.clone(),
-                    sl_ratio:cfg.sl_ratio.clone(),
+                    sl_ratio: cfg.sl_ratio.clone(),
                 };
             }
         }
@@ -238,6 +266,32 @@ impl VecorStrategy {
             return OrderSide::Sell;
         }
         OrderSide::Unknown
+    }
+
+    // 持仓是否达到止盈条件
+    pub fn handler_close_position(sym: SymbolConfig, market: MarketTemperature, candle: Vec<Candlestick>, stock: StockPosition) -> bool {
+        if candle.len() < 3 || stock.quantity.is_zero() {
+            return false;
+        }
+        let cur_price = candle.last().unwrap().close;
+        let cost_price = stock.cost_price;
+        let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
+        if tp_ratio * cost_price < cur_price {
+            if market.temperature > 50 {
+                return true;
+            }
+            if market.valuation > 45 {
+                return true;
+            }
+            if market.sentiment > 60 {
+                return true;
+            }
+            let prev_price = candle.get(candle.len() - 2).unwrap().close;
+            if (prev_price - cur_price) / prev_price > decimal!(0.05) {
+                return true;
+            }
+        }
+        false
     }
 }
 

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use log::error;
 use longport::{Config, QuoteContext, TradeContext};
 use tokio::sync::mpsc;
 use crate::collect::quote::QuoteCollectors;
@@ -17,7 +18,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
     for symbol in config.symbols {
         symbols.push(symbol.symbol.clone());
     }
-    let (sender, receiver) = mpsc::channel(100);
+    let (sender, receiver) = mpsc::channel(1024);
 
     // 创建执行器
     let mut executor = Executor::<VecorStrategy>::new(
@@ -28,7 +29,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
     // 在单独的任务中运行执行器
     let executor_handle = tokio::spawn(async move {
         if let Err(e) = executor.run().await {
-            eprintln!("Executor error: {}", e);
+            error!("Executor error: {}", e);
         }
     });
     // 异步执行收集器

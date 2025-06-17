@@ -1,3 +1,4 @@
+use log::info;
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::indicators::candle::Candle;
 use crate::indicators::utbot::UTBot;
@@ -14,12 +15,14 @@ impl BaseCalculate for UTBotCalculate {
         ubot.calculate(&self.candles);
         // 获取最新状态
         if let Some(stop) = ubot.latest_stop() {
-            println!("最新跟踪止损线: {:.2}", stop);
+            info!("最新跟踪止损线: {:.2}", stop);
         }
 
         if ubot.is_long() {
             return 1
-        } else if ubot.is_short() {
+        } 
+        
+        if ubot.is_short() {
            return -1
         }
         // 检查最新信号

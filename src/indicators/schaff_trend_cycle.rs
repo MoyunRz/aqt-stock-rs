@@ -1,4 +1,4 @@
-use env_logger::fmt::Color;
+use log4rs::encode::Color;
 use crate::indicators::candle::Candle;
 pub struct SchaffTrendCycle {
     length: usize,

@@ -1,5 +1,6 @@
 use longport::{Config, quote::{QuoteContext, SubFlags}};
 use std::sync::Arc;
+use log::info;
 use longport::quote::PushEvent;
 use tokio::sync::mpsc;
 
@@ -44,7 +45,7 @@ impl DepthCollectors {
     pub async fn subscribe(&mut self) {
         self.ctx.subscribe(&self.symbols, self.sub_flags, true).await.unwrap(); // 订阅深度数据
         while let Some(msg) = self.receiver.recv().await {
-            println!("{:?}", msg); // 处理接收到的推送消息
+            info!("{:?}", msg); // 处理接收到的推送消息
         }
     }
 
@@ -58,7 +59,7 @@ impl DepthCollectors {
     pub async fn unsubscribe(&mut self, symbols: Vec<String>) {
         self.ctx.unsubscribe(symbols, self.sub_flags).await.unwrap(); // 取消订阅深度数据
         while let Some(msg) = self.receiver.recv().await {
-            println!("{:?}", msg); // 处理接收到的推送消息
+            info!("{:?}", msg); // 处理接收到的推送消息
         }
     }
 }

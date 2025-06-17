@@ -1,5 +1,6 @@
 use longport::{Config, quote::{QuoteContext, SubFlags}};
 use std::sync::Arc;
+use log::{error, info};
 use longport::quote::{PushEvent, PushEventDetail};
 use tokio::sync::mpsc;
 use crate::models::market::MarketData;
@@ -51,7 +52,7 @@ impl QuoteCollectors {
                     ts: detail.timestamp,
                 };
                 if let Err(e) = sender.send(market_data).await {
-                    eprintln!("Failed to send market data: {}", e);
+                    error!("Failed to send market data: {}", e);
                 }
             }
         }
@@ -65,7 +66,7 @@ impl QuoteCollectors {
     pub async fn unsubscribe(&mut self, symbols: Vec<String> ) {
         self.ctx.unsubscribe(symbols, self.sub_flags).await.unwrap(); // 取消订阅行情数据
         while let Some(msg) = self.receiver.recv().await {
-            println!("{:?}", msg); // 处理接收到的推送消息
+            info!("{:?}", msg); // 处理接收到的推送消息
         }
     }
 }

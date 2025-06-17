@@ -15,6 +15,18 @@ pub struct SymbolConfig {
     pub sl_ratio: i32,        // 止损比例
 }
 
+impl SymbolConfig {
+    pub fn new() -> Self {
+        SymbolConfig {
+            symbol: "".to_string(),
+            volume: 0.0,
+            period: "".to_string(),
+            tp_ratio: 0,
+            sl_ratio: 0,
+        }
+    }
+}
+
 /// `Configs` 结构体用于加载和解析配置文件。
 #[derive(Debug, Deserialize)]
 pub struct Configs {
