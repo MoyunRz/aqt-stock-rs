@@ -74,12 +74,7 @@ impl Strategy for VecorStrategy {
 
             // 获取市场热度
             let temperature = self.service.get_market_temperature().await;
-            info!("获取{}市场热度:",event.symbol.clone());
-            info!("{}热度{:?}", event.symbol.clone(),temperature.temperature);
-            info!("{}估值{:?}", event.symbol.clone(),temperature.valuation);
-            info!("{}情绪{:?}", event.symbol.clone(), temperature.sentiment);
-            info!("{}温度描述{:?}", event.symbol.clone(), temperature.description);
-
+            info!("获取{}市场热度: 温度描述{:?} 热度{:?} 估值{:?} 情绪{:?}",event.symbol.clone(), temperature.description,temperature.temperature,temperature.valuation, temperature.sentiment);
             // 下单
             // 获取用户的持仓
             let positions = self.service.stock_positions().await;
@@ -128,7 +123,7 @@ impl Strategy for VecorStrategy {
                     let volume = sym.volume;
                     let cash = total_cash.checked_mul(decimal!(volume)).unwrap();
                     if usd_bal >= cash * decimal!(1.05) {
-                        quantity = cash / decimal!(event.close);
+                        quantity = (cash / decimal!(event.close)).ceil();
                     }
                 }
                 if !sym_position.quantity.is_zero() && inds == OrderSide::Sell {

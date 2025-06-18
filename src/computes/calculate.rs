@@ -1,3 +1,4 @@
+use log::info;
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::computes::defult_rules::CulRules;
 
@@ -26,6 +27,7 @@ impl Calculate {
             let cul = calculator.calculate();
             cul_res.push(cul);
         }
+        info!("cul_res: {:?}", cul_res);
         self.rules.cul_rules(cul_res)
     }
 }

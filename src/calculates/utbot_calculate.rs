@@ -20,8 +20,8 @@ impl BaseCalculate for UTBotCalculate {
 
         if ubot.is_long() {
             return 1
-        } 
-        
+        }
+
         if ubot.is_short() {
            return -1
         }
