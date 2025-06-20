@@ -1,9 +1,10 @@
 use std::sync::Arc;
-use longport::{Decimal, Market, QuoteContext, TradeContext};
+use log::error;
+use longport::{decimal, Decimal, Market, QuoteContext, TradeContext};
 use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions};
 use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
 use time::macros::datetime;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
 pub struct Service {
@@ -92,17 +93,23 @@ impl Service {
         &self,
         symbol: String,
         side: OrderSide,
+        price: Decimal,
         quantity: Decimal,
     ) -> SubmitOrderResponse {
-        let opts = SubmitOrderOptions::new(
-            symbol,
-            OrderType::MO,
-            side,
-            quantity,
-            TimeInForceType::Day,
-        );
+        let mut submitted_price = price;
+        if side.clone() == OrderSide::Buy{
+            submitted_price = price * decimal!(1.05);
+        }
+        if side.clone() == OrderSide::Buy{
+            submitted_price = price * decimal!(0.95);
+        }
+        // 修改点：将 `expire_time` 设置为 24 小时后（即直接下一天）
+        let expire_time = OffsetDateTime::now_utc().saturating_add(Duration::days(1));
+        let opts = SubmitOrderOptions::new(symbol, OrderType::LO, side, quantity, TimeInForceType::GoodTilDate)
+            .submitted_price(submitted_price)
+            .expire_date(expire_time.date());
         let resp = self.trade_ctx.submit_order(opts).await.unwrap_or_else(|e| {
-            eprintln!("下单出错: {}", e); // 直接打印错误信息
+            error!("下单出错: {}", e); // 直接打印错误信息
             SubmitOrderResponse { order_id: "".to_string() }
         });
         resp
@@ -174,7 +181,7 @@ impl Service {
     }
 
     /// 获取行情数据
-    /// 
+    ///
     /// 返回值：Vec<Candlestick>
     /// 返回股票的K线数据集合
     pub async fn get_candlesticks(
@@ -185,7 +192,7 @@ impl Service {
         let adjust_type = AdjustType::NoAdjust;
         let trade_sessions = TradeSessions::All;
         let count = 365;
-        let pd ;
+        let pd;
         match period.as_str() {
             "1d" => pd = Period::Day,
             "1w" => pd = Period::Week,
@@ -193,19 +200,19 @@ impl Service {
             "5m" => pd = Period::FiveMinute,
             _ => pd = Period::UnknownPeriod
         }
-        let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions, ).await.unwrap_or_else(|e| {
+        let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions).await.unwrap_or_else(|e| {
             eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
         resp
     }
-    
+
     pub async fn get_market_temperature(
         &self,
     ) -> MarketTemperature {
         let resp = self.quote_ctx.market_temperature(Market::US).await.unwrap_or_else(|e| {
             eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
-            MarketTemperature{
+            MarketTemperature {
                 temperature: 0,
                 description: "".to_string(),
                 valuation: 0,

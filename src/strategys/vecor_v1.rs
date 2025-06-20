@@ -51,9 +51,9 @@ impl Strategy for VecorStrategy {
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error>> {
         // 判断当前的数据时间
         let ts = event.ts.unix_timestamp();
-        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+        let market_px = event.price.clone();
         // 只处理收尾的K线
-        if ts % 300 <= 3 {
+        if ts % 300 <= 10 && !market_px.clone().is_zero(){
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self.service.get_candlesticks(event.symbol.clone(), sym.clone().period).await;
@@ -67,10 +67,6 @@ impl Strategy for VecorStrategy {
             if candles_list.clone().is_empty() {
                 return Ok(());
             }
-            let candles_last = candles.last().unwrap();
-            if candles_last.timestamp.unix_timestamp() > now_ts - 5 && candles_last.timestamp.unix_timestamp() < now_ts + 5 {
-                return Ok(());
-            }
 
             // 获取市场热度
             let temperature = self.service.get_market_temperature().await;
@@ -82,17 +78,19 @@ impl Strategy for VecorStrategy {
 
             // TODO 判断是否达到收益预期 进行回撤、市场情绪、仓位判断 决定是否抛售
             if VecorStrategy::handler_close_position(sym.clone(), temperature.clone(), candles, sym_position.clone()) {
-                let _ = self.service.submit_order(event.symbol.clone(), OrderSide::Sell, sym_position.quantity);
+                info!("{:?}",market_px.clone());
+                let resp = self.service.submit_order(event.symbol.clone(), OrderSide::Sell,market_px.clone(), sym_position.available_quantity).await;
+                info!("{:?}", resp);
                 return Ok(());
             }
 
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list, temperature);
             info!("对{}进行技术指标聚合判断:{}",event.symbol.clone(),inds);
-            if inds == OrderSide::Buy && sym_position.cost_price < event.close {
+            if inds == OrderSide::Buy && sym_position.cost_price < market_px.clone() {
                 return Ok(());
             }
-            if inds == OrderSide::Sell && sym_position.cost_price > event.close {
+            if inds == OrderSide::Sell && sym_position.cost_price > market_px.clone() {
                 return Ok(());
             }
             // TODO 指标指出可以买卖
@@ -123,11 +121,11 @@ impl Strategy for VecorStrategy {
                     let volume = sym.volume;
                     let cash = total_cash.checked_mul(decimal!(volume)).unwrap();
                     if usd_bal >= cash * decimal!(1.05) {
-                        quantity = (cash / decimal!(event.close)).ceil();
+                        quantity = (cash / decimal!(market_px.clone())).ceil();
                     }
                 }
-                if !sym_position.quantity.is_zero() && inds == OrderSide::Sell {
-                    quantity = sym_position.quantity;
+                if !sym_position.available_quantity.is_zero() && inds == OrderSide::Sell {
+                    quantity = sym_position.available_quantity;
                 }
 
                 // 数量为0直接返回
@@ -136,8 +134,10 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 获取订单状态，是否可以下单
-                if VecorStrategy::handler_orders(orders, event.symbol.clone()) {
-                    let _ = self.service.submit_order(event.symbol.clone(), inds, quantity);
+                let order_status = VecorStrategy::handler_orders(&self.service,orders, event.symbol.clone()).await;
+                if order_status {
+                    let resp = self.service.submit_order(event.symbol.clone(), inds,market_px.clone(), quantity).await;
+                    info!("{:?}", resp);
                 }
             }
         }
@@ -184,7 +184,7 @@ impl VecorStrategy {
         cs
     }
 
-    pub fn handler_orders(orders: Vec<Order>, symbol: String) -> bool {
+    pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
         if orders.is_empty() {
             return false;
         }
@@ -193,11 +193,15 @@ impl VecorStrategy {
         // 判断是不是2个小时内下过单
         for o in orders {
             if o.symbol == symbol {
+                // 检查订单提交时间是否在最近两小时内
                 if o.submitted_at.unix_timestamp_nanos() / ts > OffsetDateTime::now_utc().unix_timestamp_nanos() / ts - h2ts {
-                    return false;
+                    return false; // 若在两小时内返回false，避免频繁下单
                 }
+                // 判断订单状态是否为新订单、等待提交或部分成交
                 if o.status == OrderStatus::New && o.status == OrderStatus::WaitToNew && o.status == OrderStatus::PartialFilled {
-                    return false;
+                    // 取消订单
+                    let _ = service.cancel_order(o.order_id).await;
+                    return false; // 如果满足条件则返回false，防止重复操作
                 }
             }
         }
@@ -265,12 +269,15 @@ impl VecorStrategy {
 
     // 持仓是否达到止盈条件
     pub fn handler_close_position(sym: SymbolConfig, market: MarketTemperature, candle: Vec<Candlestick>, stock: StockPosition) -> bool {
-        if candle.len() < 3 || stock.quantity.is_zero() {
+        if candle.len() < 3 || stock.available_quantity.is_zero() {
             return false;
+        }
+        if sym.symbol == "NVDL.US" {
+            info!("NVDL.US" )
         }
         let cur_price = candle.last().unwrap().close;
         let cost_price = stock.cost_price;
-        let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
+        let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.001) + decimal!(1);
         if tp_ratio * cost_price < cur_price {
             if market.temperature > 50 {
                 return true;
@@ -282,7 +289,7 @@ impl VecorStrategy {
                 return true;
             }
             let prev_price = candle.get(candle.len() - 2).unwrap().close;
-            if (prev_price - cur_price) / prev_price > decimal!(0.05) {
+            if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
             }
         }

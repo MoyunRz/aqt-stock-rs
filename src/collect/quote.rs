@@ -40,19 +40,21 @@ impl QuoteCollectors {
         self.ctx.subscribe(&self.symbols, self.sub_flags, true).await.unwrap();
         while let Some(msg) = self.receiver.recv().await {
             if let PushEventDetail::Quote(detail) = msg.detail {
-                let market_data = MarketData {
-                    symbol: msg.symbol,
-                    price: detail.last_done,
-                    change: detail.last_done - detail.open,
-                    volume: detail.volume,
-                    high: detail.high,
-                    low: detail.low,
-                    open: detail.open,
-                    close: detail.last_done,
-                    ts: detail.timestamp,
-                };
-                if let Err(e) = sender.send(market_data).await {
-                    error!("Failed to send market data: {}", e);
+                if !detail.clone().last_done.is_zero() {
+                    let market_data = MarketData {
+                        symbol: msg.symbol,
+                        price: detail.last_done,
+                        change: detail.last_done - detail.open,
+                        volume: detail.volume,
+                        high: detail.high,
+                        low: detail.low,
+                        open: detail.open,
+                        close: detail.last_done,
+                        ts: detail.timestamp,
+                    };
+                    if let Err(e) = sender.send(market_data).await {
+                        error!("Failed to send market data: {}", e);
+                    }
                 }
             }
         }
