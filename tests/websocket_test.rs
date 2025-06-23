@@ -2,7 +2,6 @@ use tokio::sync::mpsc;
 use aqt_stock::collect::brokers::BrokersCollectors;
 use aqt_stock::collect::depth::DepthCollectors;
 use aqt_stock::collect::quote::QuoteCollectors;
-use aqt_stock::collect::trade::TradeCollectors;
 
 #[tokio::test]
 async fn test_quote_subscription() {

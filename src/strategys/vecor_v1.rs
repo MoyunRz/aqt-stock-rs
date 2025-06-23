@@ -53,7 +53,7 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线
-        if ts % 60 <= 10 && !market_px.clone().is_zero(){
+        if ts % 300 <= 10 && !market_px.clone().is_zero(){
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self.service.get_candlesticks(event.symbol.clone(), sym.clone().period).await;
