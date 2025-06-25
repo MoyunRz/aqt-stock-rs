@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::sync::Arc;
+use std::env;
 use log::{info, warn};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use longport::quote::{Candlestick, MarketTemperature};
@@ -83,17 +84,26 @@ impl Strategy for VecorStrategy {
                 info!("{:?}", resp);
                 return Ok(());
             }
-            
-            // 计算是不是新k线
-            let cs = candles_list.clone();
-            let le = candles_list.clone().len();
-            let pts = cs[le-2].timestamp - cs[le-3].timestamp;
-            let lts = cs[le-1].timestamp- cs[le-2].timestamp;
-            // 新的k线
-            if pts - lts > 10 {
-                return Ok(());
-            }
 
+            // 获取 APP_ENV 配置
+            match env::var("APP_ENV") {
+                Ok(value) => {
+                    if value != "dev" {
+                        // 计算是不是新k线
+                        let cs = candles_list.clone();
+                        let le = candles_list.clone().len();
+                        let pts = cs[le-2].timestamp - cs[le-3].timestamp;
+                        let lts = cs[le-1].timestamp- cs[le-2].timestamp;
+                        // 新的k线
+                        if pts - lts > 10 {
+                            return Ok(());
+                        }
+                    }
+                },
+                Err(e) => {
+                    warn!("获取APP_ENV配置错误:{}", e);
+                },
+            }
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list, temperature);
             info!("对{}进行技术指标聚合判断:{}",event.symbol.clone(),inds);

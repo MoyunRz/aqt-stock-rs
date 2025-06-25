@@ -23,6 +23,7 @@ toml = "0.8.20"
 serde_yaml = "0.9"
 time = "0.3"
 strum_macros = "0.27.1"
+dotenv = "0.15"
 
 [dev-dependencies]
 tokio-test = "0.4.4"
