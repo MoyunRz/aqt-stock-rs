@@ -1,7 +1,6 @@
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::indicators::candle::Candle;
 use crate::indicators::macd::MACD;
-use ta::indicators::MovingAverageConvergenceDivergence as Macd;
 pub struct MacdCalculate {
     pub(crate) candles: Vec<Candle>,
 }
