@@ -24,6 +24,8 @@ impl Calculate {
         // 传递对 calculators 的引用
         let mut  cul_res = Vec::new();
         for  calculator in &self.calculators {
+            let dc= calculator.get_description();
+            info!("{}", dc);
             let cul = calculator.calculate();
             cul_res.push(cul);
         }
