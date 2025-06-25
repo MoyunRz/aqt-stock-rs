@@ -6,6 +6,7 @@ use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use longport::quote::{Candlestick, MarketTemperature};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
 use time::OffsetDateTime;
+use crate::calculates::cyc_calculate::CycCalculate;
 use crate::config::config;
 use crate::config::config::SymbolConfig;
 use crate::models::market::MarketData;
@@ -273,12 +274,16 @@ impl VecorStrategy {
         let stc = Box::new(STCCalculate {
             candles: candles.clone(),
         });
+        let cyc = Box::new(CycCalculate {
+            candles: candles.clone(),
+        });
 
         calculate.add_calculator(kdj);
         calculate.add_calculator(macd);
         calculate.add_calculator(stc);
         calculate.add_calculator(ut_bot);
         calculate.add_calculator(mark);
+        calculate.add_calculator(cyc);
         let res = calculate.execute_rules();
         if res > 0 {
             return OrderSide::Buy;

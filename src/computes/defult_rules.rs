@@ -20,10 +20,10 @@ impl CulRules for DefultRules {
             cul_res += i;
         }
 
-        if cul_res >= 3 {
+        if cul_res > 3 {
             return 1;
         }
-        if cul_res <= -3 {
+        if cul_res < -3 {
             return -1;
         }
         0
