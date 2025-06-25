@@ -53,11 +53,11 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线
-        if ts % 60*3 <= 3 && !market_px.clone().is_zero(){
+        if ts % 60*5 <= 4 && !market_px.clone().is_zero(){
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self.service.get_candlesticks(event.symbol.clone(), sym.clone().period).await;
-            info!("获取{}股票K线数据", event.symbol.clone());
+            // info!("获取{}股票K线数据", event.symbol.clone());
             // 防止为空
             if candles.clone().is_empty() {
                 return Ok(());
@@ -81,6 +81,16 @@ impl Strategy for VecorStrategy {
                 info!("{:?}",market_px.clone());
                 let resp = self.service.submit_order(event.symbol.clone(), OrderSide::Sell,market_px.clone(), sym_position.available_quantity).await;
                 info!("{:?}", resp);
+                return Ok(());
+            }
+            
+            // 计算是不是新k线
+            let cs = candles_list.clone();
+            let le = candles_list.clone().len();
+            let pts = cs[le-2].timestamp - cs[le-3].timestamp;
+            let lts = cs[le-1].timestamp- cs[le-2].timestamp;
+            // 新的k线
+            if pts - lts > 10 {
                 return Ok(());
             }
 

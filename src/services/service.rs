@@ -98,10 +98,10 @@ impl Service {
     ) -> SubmitOrderResponse {
         let mut submitted_price = price;
         if side.clone() == OrderSide::Buy{
-            submitted_price = (price * decimal!(1.02)).round_dp(2);
+            submitted_price = (price * decimal!(1.05)).round_dp(2);
         }
         if side.clone() == OrderSide::Sell{
-            submitted_price = (price * decimal!(0.98)).round_dp(2);
+            submitted_price = (price * decimal!(0.95)).round_dp(2);
         }
         println!("下单价格：{:?}", submitted_price.clone());
         // 修改点：将 `expire_time` 设置为 24 小时后（即直接下一天）
