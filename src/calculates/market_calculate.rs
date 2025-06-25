@@ -7,23 +7,24 @@ pub struct MarketCalculate {
 
 impl BaseCalculate for MarketCalculate {
     fn calculate(&self) -> i64 {
-        if self.market.temperature > 55 {
-            return -1;
-        }
-        if self.market.valuation > 50 {
-            return -1;
-        }
+
         if self.market.sentiment > 70 {
-            return -1;
-        }
-        if self.market.temperature < 30 {
-            return 1;
-        }
-        if self.market.valuation < 30 {
-            return 1;
+            return -2;
         }
         if self.market.sentiment < 24 {
-            return 1;
+            return 2;
+        }
+        if self.market.temperature < 30 {
+            return 2;
+        }
+        if self.market.temperature > 55 {
+            return -2;
+        }
+        if self.market.valuation > 50 {
+            return -2;
+        }
+        if self.market.valuation < 30 {
+            return 2;
         }
         0
     }

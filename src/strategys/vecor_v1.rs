@@ -1,10 +1,12 @@
 use std::error::Error;
 use std::sync::Arc;
+use std::env;
 use log::{info, warn};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use longport::quote::{Candlestick, MarketTemperature};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
 use time::OffsetDateTime;
+use crate::calculates::cyc_calculate::CycCalculate;
 use crate::config::config;
 use crate::config::config::SymbolConfig;
 use crate::models::market::MarketData;
@@ -53,11 +55,11 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线
-        if ts % 60 <= 10 && !market_px.clone().is_zero(){
+        if ts % 60*5 <= 4 && !market_px.clone().is_zero(){
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self.service.get_candlesticks(event.symbol.clone(), sym.clone().period).await;
-            info!("获取{}股票K线数据", event.symbol.clone());
+            // info!("获取{}股票K线数据", event.symbol.clone());
             // 防止为空
             if candles.clone().is_empty() {
                 return Ok(());
@@ -84,13 +86,32 @@ impl Strategy for VecorStrategy {
                 return Ok(());
             }
 
+            // 获取 APP_ENV 配置
+            match env::var("APP_ENV") {
+                Ok(value) => {
+                    if value != "dev" {
+                        // 计算是不是新k线
+                        let cs = candles_list.clone();
+                        let le = candles_list.clone().len();
+                        let pts = cs[le-2].timestamp - cs[le-3].timestamp;
+                        let lts = cs[le-1].timestamp- cs[le-2].timestamp;
+                        // 新的k线
+                        if pts - lts > 10 {
+                            return Ok(());
+                        }
+                    }
+                },
+                Err(e) => {
+                    warn!("获取APP_ENV配置错误:{}", e);
+                },
+            }
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list, temperature);
             info!("对{}进行技术指标聚合判断:{}",event.symbol.clone(),inds);
-            if inds == OrderSide::Buy && sym_position.cost_price < market_px.clone() {
+            if inds == OrderSide::Buy && !sym_position.cost_price.is_zero() &&sym_position.cost_price < market_px.clone() {
                 return Ok(());
             }
-            if inds == OrderSide::Sell && sym_position.cost_price > market_px.clone() {
+            if inds == OrderSide::Sell && !sym_position.cost_price.is_zero() && sym_position.cost_price > market_px.clone() {
                 return Ok(());
             }
             // TODO 指标指出可以买卖
@@ -107,9 +128,11 @@ impl Strategy for VecorStrategy {
                 let mut usd_bal = Decimal::new(0, 3);
                 let mut total_cash = Decimal::new(0, 3);
                 for b in balance {
-                    if b.currency == "USD" {
-                        usd_bal = b.buy_power;
-                        total_cash = b.total_cash;
+                    for cash_info in b.cash_infos {
+                        if cash_info.currency == "USD" {
+                            usd_bal = cash_info.withdraw_cash;
+                            total_cash = cash_info.available_cash;
+                        }
                     }
                 }
 
@@ -186,7 +209,7 @@ impl VecorStrategy {
 
     pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
         if orders.is_empty() {
-            return false;
+            return true;
         }
         let ts = 1_000_000;
         let h2ts = 2 * 60 * 60 * 1000;
@@ -251,12 +274,16 @@ impl VecorStrategy {
         let stc = Box::new(STCCalculate {
             candles: candles.clone(),
         });
+        let cyc = Box::new(CycCalculate {
+            candles: candles.clone(),
+        });
 
         calculate.add_calculator(kdj);
         calculate.add_calculator(macd);
         calculate.add_calculator(stc);
         calculate.add_calculator(ut_bot);
         calculate.add_calculator(mark);
+        calculate.add_calculator(cyc);
         let res = calculate.execute_rules();
         if res > 0 {
             return OrderSide::Buy;
@@ -277,15 +304,15 @@ impl VecorStrategy {
         }
         let cur_price = candle.last().unwrap().close;
         let cost_price = stock.cost_price;
-        let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.001) + decimal!(1);
+        let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
         if tp_ratio * cost_price < cur_price {
+            if market.sentiment > 60 {
+                return true;
+            }
             if market.temperature > 50 {
                 return true;
             }
             if market.valuation > 45 {
-                return true;
-            }
-            if market.sentiment > 60 {
                 return true;
             }
             let prev_price = candle.get(candle.len() - 2).unwrap().close;

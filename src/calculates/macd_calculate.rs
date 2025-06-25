@@ -1,7 +1,7 @@
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::indicators::candle::Candle;
 use crate::indicators::macd::MACD;
-
+use ta::indicators::MovingAverageConvergenceDivergence as Macd;
 pub struct MacdCalculate {
     pub(crate) candles: Vec<Candle>,
 }
@@ -9,7 +9,7 @@ pub struct MacdCalculate {
 impl BaseCalculate for MacdCalculate {
     fn calculate(&self) -> i64 {
         // 创建MACD指标
-        let mut macd = MACD::new(12, 26, 9);
+        let mut macd = MACD::new(5, 10, 5);
         // 设置显示选项
         macd.set_display_options(true, true, true, true, true);
 
