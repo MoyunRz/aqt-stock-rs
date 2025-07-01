@@ -22,9 +22,9 @@ impl BaseCalculate for CycCalculate {
     }
 
     fn get_name(&self) -> String {
-        "KDJ".to_string()
+        "CYC".to_string()
     }
     fn get_description(&self) -> String {
-        "KDJ指标".to_string()
+        "CYC 指标".to_string()
     }
 }

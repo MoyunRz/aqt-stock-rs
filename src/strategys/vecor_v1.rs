@@ -108,10 +108,10 @@ impl Strategy for VecorStrategy {
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list, temperature);
             info!("对{}进行技术指标聚合判断:{}",event.symbol.clone(),inds);
-            if inds == OrderSide::Buy && !sym_position.cost_price.is_zero() &&sym_position.cost_price < market_px.clone() {
+            if inds == OrderSide::Buy && !sym_position.cost_price.is_zero() && sym_position.cost_price*decimal!(0.99) <= market_px.clone() {
                 return Ok(());
             }
-            if inds == OrderSide::Sell && !sym_position.cost_price.is_zero() && sym_position.cost_price > market_px.clone() {
+            if inds == OrderSide::Sell && !sym_position.cost_price.is_zero() && sym_position.cost_price >= market_px.clone()*decimal!(0.99) {
                 return Ok(());
             }
             // TODO 指标指出可以买卖

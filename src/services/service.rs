@@ -198,6 +198,7 @@ impl Service {
             "1d" => pd = Period::Day,
             "1w" => pd = Period::Week,
             "15m" => pd = Period::FifteenMinute,
+            "1h" => pd = Period::SixtyMinute,
             "2h" => pd = Period::TwoHour,
             "3h" => pd = Period::ThreeHour,
             "4h" => pd = Period::FourHour,
