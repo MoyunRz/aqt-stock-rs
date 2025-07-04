@@ -31,7 +31,7 @@ impl<T: Strategy + Send> Executor<T> {
         // 然后处理接收到的市场数据
         while let Some(event) = self.quote_receiver.recv().await {
             if let Err(e) = self.executor.execute(&event).await {
-                error!("Error executing strategy: {}", e);
+                error!("Error executing strategy: {:?}", e);
             }
         }
         // 最后停止内部策略

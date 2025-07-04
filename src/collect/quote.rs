@@ -52,6 +52,7 @@ impl QuoteCollectors {
                         close: detail.last_done,
                         ts: detail.timestamp,
                     };
+                    // println!("{:?}", market_data.clone());
                     if let Err(e) = sender.send(market_data).await {
                         error!("Failed to send market data: {}", e);
                     }

@@ -20,6 +20,7 @@ fn stc_test() {
         let high = price * 1.01;
         let low: f64 = f64::min(open, price) * 0.99;
         candles.push(Candle {
+            symbol: Option::from("AAPL".to_string()),
             timestamp: (i as u64) * 60000, // 假设1分钟K线
             open,
             high,

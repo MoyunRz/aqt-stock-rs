@@ -28,6 +28,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
     );
     // 在单独的任务中运行执行器
     let executor_handle = tokio::spawn(async move {
+        // 循环执行
         if let Err(e) = executor.run().await {
             error!("Executor error: {}", e);
         }

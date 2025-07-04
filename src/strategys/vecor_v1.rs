@@ -64,7 +64,7 @@ impl Strategy for VecorStrategy {
             if candles.clone().is_empty() {
                 return Ok(());
             }
-            let candles_list = VecorStrategy::handle_candles(candles.clone());
+            let candles_list = VecorStrategy::handle_candles(event.symbol.clone(), candles.clone());
             // 防止为空
             if candles_list.clone().is_empty() {
                 return Ok(());
@@ -84,7 +84,7 @@ impl Strategy for VecorStrategy {
                 let resp = self.service.submit_order(event.symbol.clone(), OrderSide::Sell,market_px.clone(), sym_position.available_quantity).await;
                 info!("{:?}", resp);
                 return Ok(());
-            }
+            }    
 
             // 获取 APP_ENV 配置
             match env::var("APP_ENV") {
@@ -94,7 +94,7 @@ impl Strategy for VecorStrategy {
                         let cs = candles_list.clone();
                         let le = candles_list.clone().len();
                         let pts = cs[le-2].timestamp - cs[le-3].timestamp;
-                        let lts = cs[le-1].timestamp- cs[le-2].timestamp;
+                        let lts = cs[le-1].timestamp - cs[le-2].timestamp;
                         // 新的k线
                         if pts - lts > 10 {
                             return Ok(());
@@ -192,10 +192,11 @@ impl VecorStrategy {
         sym
     }
 
-    pub fn handle_candles(candles: Vec<Candlestick>) -> Vec<Candle> {
+    pub fn handle_candles(symbol:String,candles: Vec<Candlestick>) -> Vec<Candle> {
         let candles = candles.clone();
         let cs = candles.iter().map(|c| {
             Candle {
+                symbol: Option::from(symbol.clone()),
                 timestamp: c.timestamp.unix_timestamp() as u64,
                 open: f64::try_from(c.open).unwrap(),
                 high: f64::try_from(c.high).unwrap(),
@@ -207,6 +208,9 @@ impl VecorStrategy {
         cs
     }
 
+    /// handler_orders 处理订单
+    /// - 判断是不是2个小时内下过单
+    /// - 判断订单状态是否合适继续下单
     pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
         if orders.is_empty() {
             return true;
