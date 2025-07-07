@@ -2,7 +2,7 @@ use longport::{decimal, Decimal};
 use serde::{Deserialize};
 use time::OffsetDateTime;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MarketData {
     /// 股票代码
     pub symbol: String,

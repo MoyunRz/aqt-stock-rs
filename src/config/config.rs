@@ -9,6 +9,7 @@ use std::error::Error;
 #[derive(Debug, Deserialize,Clone)]
 pub struct SymbolConfig {
     pub symbol: String,       // 股票代码
+    pub symbol_type: String, // 股票类型
     pub volume: f64,          // 开仓比例
     pub period: String,   // K线级别
     pub tp_ratio: i32,        // 止盈比例
@@ -19,6 +20,7 @@ impl SymbolConfig {
     pub fn new() -> Self {
         SymbolConfig {
             symbol: "".to_string(),
+            symbol_type: "".to_string(),
             volume: 0.0,
             period: "".to_string(),
             tp_ratio: 0,
