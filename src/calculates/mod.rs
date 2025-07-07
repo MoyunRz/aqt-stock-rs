@@ -5,3 +5,4 @@ pub mod cyc_calculate;
 pub mod stc_calculate;
 pub mod utbot_calculate;
 pub mod market_calculate;
+pub mod technicals_calculate;
