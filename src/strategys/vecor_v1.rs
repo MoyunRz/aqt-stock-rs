@@ -271,6 +271,7 @@ impl VecorStrategy {
                 if o.status == OrderStatus::New
                     && o.status == OrderStatus::WaitToNew
                     && o.status == OrderStatus::PartialFilled
+                    && o.status == OrderStatus::NotReported
                 {
                     // 取消订单
                     let _ = service.cancel_order(o.order_id).await;
