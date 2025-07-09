@@ -7,7 +7,16 @@ pub struct TechnicalsCalculate {
 
 impl BaseCalculate for TechnicalsCalculate {
     fn calculate(&self) -> i64 {
-        0
+        let (summary_signal, ma_signal, osc_signal) = self.technicals.calculate();
+        if summary_signal >= 1.0 || ma_signal >= 1.0 || osc_signal >= 1.0 {
+            3
+        }
+        else if summary_signal <= -1.0 || ma_signal <= -1.0 || osc_signal <= -1.0 {
+            -3
+        }
+        else {
+            0
+        }
     }
 
     fn get_name(&self) -> String {
