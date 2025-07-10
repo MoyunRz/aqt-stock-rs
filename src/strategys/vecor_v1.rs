@@ -76,7 +76,7 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线
-        if ts % 3 <= 3 && !market_px.clone().is_zero() {
+        if ts % 300 <= 3 && !market_px.clone().is_zero() {
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self
@@ -252,26 +252,27 @@ impl VecorStrategy {
     /// - 判断是不是2个小时内下过单
     /// - 判断订单状态是否合适继续下单
     pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
-        if orders.is_empty() {
-            return true;
-        }
         // let ts = 1_000;
-        let h2ts = 2 * 60 * 60;
+        let h2ts = 10 * 60 * 60;
+        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
         // 判断是不是2个小时内下过单
         for o in orders {
             if o.symbol == symbol {
                 // 检查订单提交时间是否在最近两小时内
-                info!("submitted_at   {:?}",o.submitted_at.clone().unix_timestamp());
-                info!("OffsetDateTime {:?}",OffsetDateTime::now_utc().unix_timestamp());
-                if o.submitted_at.unix_timestamp()  > OffsetDateTime::now_utc().unix_timestamp()  - h2ts
+                // let used_time = (now_ts - o.submitted_at.to_utc().clone().unix_timestamp())/3600;
+                // info!("used_time   {:?}",used_time);
+                // info!("submitted_at   {:?}",o.submitted_at.to_utc().clone().unix_timestamp());
+                // info!("OffsetDateTime {:?}",now_ts.clone());
+                if o.submitted_at.to_utc().unix_timestamp()  > (now_ts  - h2ts)
                 {
                     return false; // 若在两小时内返回false，避免频繁下单
                 }
+
                 // 判断订单状态是否为新订单、等待提交或部分成交
                 if o.status == OrderStatus::New
-                    && o.status == OrderStatus::WaitToNew
-                    && o.status == OrderStatus::PartialFilled
-                    && o.status == OrderStatus::NotReported
+                    || o.status == OrderStatus::WaitToNew
+                    || o.status == OrderStatus::PartialFilled
+                    || o.status == OrderStatus::NotReported
                 {
                     // 取消订单
                     let _ = service.cancel_order(o.order_id).await;

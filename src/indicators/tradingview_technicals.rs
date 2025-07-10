@@ -16,7 +16,7 @@ static TECHNICALS_CACHE: Lazy<Arc<Cache<String, Value>>> = Lazy::new(|| {
     )
 });
 
-/// TradingviewTechnicals 指标结构体
+/// Trading View Technicals 指标结构体
 #[derive(Clone)]
 pub struct TradingTechnicals {
      values:  Value,
