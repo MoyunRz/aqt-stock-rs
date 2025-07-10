@@ -19,9 +19,10 @@ use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::env;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::Duration;
 use time::OffsetDateTime;
 use crate::calculates::technicals_calculate::TechnicalsCalculate;
+use crate::strategys::gconsts::Environment;
+use crate::strategys::gconsts::Environment::{DEV, LOCAL, PROD};
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -29,16 +30,37 @@ pub struct VecorStrategy {
     service: Service,
     /// 股票配置映射，存储每个股票的配置信息
     sym_config: Vec<SymbolConfig>,
+    env: Environment,
 }
+
 
 impl Strategy for VecorStrategy {
     /// 创建一个新的 VecorStrategy 实例
     fn new(quote_ctx: Arc<QuoteContext>, trade_ctx: Arc<TradeContext>) -> Self {
         let cfgs = config::Configs::load();
         let sym_config = cfgs.unwrap().symbols;
+        let mut env = LOCAL;
+        // 获取 APP_ENV 配置
+          match env::var("APP_ENV") {
+            Ok(value) => {
+               if value == "dev" {
+                   info!("当前环境为开发环境");
+                   env = DEV;
+               }
+               if value == "prod"{
+                   info!("当前环境为生产环境");
+                   env = PROD;
+               }
+            },
+            Err(e) => {
+                warn!("获取APP_ENV配置错误:{}", e);
+            },
+        }
+
         VecorStrategy {
             service: Service::new(quote_ctx, trade_ctx),
             sym_config,
+            env,
         }
     }
 
@@ -95,26 +117,18 @@ impl Strategy for VecorStrategy {
                     .await;
                 info!("{:?}", resp);
                 return Ok(());
-            }    
-
+            }
             // 获取 APP_ENV 配置
-            match env::var("APP_ENV") {
-                Ok(value) => {
-                    if value != "dev" {
-                        // 计算是不是新k线
-                        let cs = candles_list.clone();
-                        let le = candles_list.clone().len();
-                        let pts = cs[le-2].timestamp - cs[le-3].timestamp;
-                        let lts = cs[le-1].timestamp - cs[le-2].timestamp;
-                        // 新的k线
-                        if pts - lts > 10 {
-                            return Ok(());
-                        }
-                    }
-                },
-                Err(e) => {
-                    warn!("获取APP_ENV配置错误:{}", e);
-                },
+            if self.env != DEV {
+                // 计算是不是新k线
+                let cs = candles_list.clone();
+                let le = candles_list.clone().len();
+                let pts = cs[le-2].timestamp - cs[le-3].timestamp;
+                let lts = cs[le-1].timestamp - cs[le-2].timestamp;
+                // 新的k线
+                if pts - lts > 10 {
+                    return Ok(());
+                }
             }
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list,sym.clone()).await;
@@ -133,7 +147,7 @@ impl Strategy for VecorStrategy {
             }
             // TODO 指标指出可以买卖
             if inds != OrderSide::Unknown {
-                info!("获取用户的资金");
+                // info!("获取用户的资金");
                 // 获取用户的资金
                 let balance = self.service.account_balance().await;
                 if balance.is_empty() {
@@ -238,24 +252,27 @@ impl VecorStrategy {
     /// - 判断是不是2个小时内下过单
     /// - 判断订单状态是否合适继续下单
     pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
-        if orders.is_empty() {
-            return true;
-        }
-        let ts = 1_000_000;
-        let h2ts = 2 * 60 * 60 * 1000;
+        // let ts = 1_000;
+        let h2ts = 10 * 60 * 60;
+        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
         // 判断是不是2个小时内下过单
         for o in orders {
             if o.symbol == symbol {
                 // 检查订单提交时间是否在最近两小时内
-                if o.submitted_at.unix_timestamp_nanos() / ts
-                    > OffsetDateTime::now_utc().unix_timestamp_nanos() / ts - h2ts
+                // let used_time = (now_ts - o.submitted_at.to_utc().clone().unix_timestamp())/3600;
+                // info!("used_time   {:?}",used_time);
+                // info!("submitted_at   {:?}",o.submitted_at.to_utc().clone().unix_timestamp());
+                // info!("OffsetDateTime {:?}",now_ts.clone());
+                if o.submitted_at.to_utc().unix_timestamp()  > (now_ts  - h2ts)
                 {
                     return false; // 若在两小时内返回false，避免频繁下单
                 }
+
                 // 判断订单状态是否为新订单、等待提交或部分成交
                 if o.status == OrderStatus::New
-                    && o.status == OrderStatus::WaitToNew
-                    && o.status == OrderStatus::PartialFilled
+                    || o.status == OrderStatus::WaitToNew
+                    || o.status == OrderStatus::PartialFilled
+                    || o.status == OrderStatus::NotReported
                 {
                     // 取消订单
                     let _ = service.cancel_order(o.order_id).await;
@@ -302,7 +319,7 @@ impl VecorStrategy {
         sym_str = sym_str.replace(".US", "");
         sym_str = format!("{}:{}", symbol.symbol_type, sym_str);
         let technicals = TradingTechnicals::new(sym_str.as_str()).await;
-        
+
         let defult_rules = DefultRules {};
         let rules = defult_rules.create();
         let mut calculate = Calculate::new(Box::new(rules));

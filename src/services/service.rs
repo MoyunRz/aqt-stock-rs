@@ -71,10 +71,10 @@ impl Service {
     ) -> Vec<Order> {
         let opts = GetTodayOrdersOptions::new()
             .symbol(symbol)
-            .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew])
+            .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew, OrderStatus::NotReported])
             .market(Market::US);
         let resp = self.trade_ctx.today_orders(opts).await.unwrap_or_else(|e| {
-            eprintln!("获取今日订单出错: {}", e); // 直接打印错误信息
+            error!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
         resp

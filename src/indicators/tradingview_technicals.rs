@@ -16,7 +16,7 @@ static TECHNICALS_CACHE: Lazy<Arc<Cache<String, Value>>> = Lazy::new(|| {
     )
 });
 
-/// TradingviewTechnicals 指标结构体
+/// Trading View Technicals 指标结构体
 #[derive(Clone)]
 pub struct TradingTechnicals {
      values:  Value,
@@ -74,8 +74,8 @@ impl TradingTechnicals {
 
         // 将数据存储到缓存中
         TECHNICALS_CACHE.insert(symbol.to_string(), v.clone());
-        info!("已将 {} 的技术指标数据存储到缓存", symbol);
-
+        // info!("已将 {} 的技术指标数据存储到缓存", symbol);
+        // info!("{} 的技术指标数据: {:?}", symbol, v.clone());
         TradingTechnicals {
             values: v,
         }
@@ -93,29 +93,29 @@ impl TradingTechnicals {
         info!("已清除所有技术指标缓存");
     }
 
-    pub fn calculate(&mut self) -> (f64, f64, f64) {
+    pub fn calculate(&self) -> (f64, f64, f64) {
         // 结构化归纳
         let summary_signal = match self.values.get("Recommend.All").and_then(|x| x.as_f64()) {
-            Some(val) if val > 0.5 && val < 0.7=> 1.0,
-            Some(val) if val > 0.7 => 2.0,
-            Some(val) if val < -0.5 && val > -0.7 => -1.0,
-            Some(val) if val < -0.7 =>-2.0,
+            Some(val) if val > 0.25 && val < 0.6=> 1.0,
+            Some(val) if val > 0.6 => 2.0,
+            Some(val) if val < -0.25 && val > -0.6 => -1.0,
+            Some(val) if val < -0.6 =>-2.0,
             _ => 0.0,
         };
 
         let ma_signal = match self.values.get("Recommend.MA").and_then(|x| x.as_f64()) {
-            Some(val) if val > 0.5 && val < 0.7=> 1.0,
-            Some(val) if val > 0.7 => 2.0,
-            Some(val) if val < -0.5 && val > -0.7 => -1.0,
-            Some(val) if val < -0.7 =>-2.0,
+            Some(val) if val > 0.25 && val < 0.6=> 1.0,
+            Some(val) if val > 0.6 => 2.0,
+            Some(val) if val < -0.25 && val > -0.6 => -1.0,
+            Some(val) if val < -0.6 =>-2.0,
             _ => 0.0,
         };
 
         let osc_signal = match self.values.get("Recommend.Other").and_then(|x| x.as_f64()) {
-            Some(val) if val > 0.5 && val < 0.7=> 1.0,
-            Some(val) if val > 0.7 => 2.0,
-            Some(val) if val < -0.5 && val > -0.7 => -1.0,
-            Some(val) if val < -0.7 =>-2.0,
+            Some(val) if val > 0.25 && val < 0.6=> 1.0,
+            Some(val) if val > 0.6 => 2.0,
+            Some(val) if val < -0.25 && val > -0.6 => -1.0,
+            Some(val) if val < -0.6 =>-2.0,
             _ => 0.0,
         };
         (summary_signal, ma_signal, osc_signal)
