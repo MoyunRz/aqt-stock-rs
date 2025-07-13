@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use log::error;
 use longport::{decimal, Decimal, Market, QuoteContext, TradeContext};
-use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions};
+use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions, WatchlistGroup};
 use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
 use time::macros::datetime;
 use time::{Duration, OffsetDateTime};
@@ -53,7 +53,7 @@ impl Service {
 
         // 调用 `history_orders` 方法获取历史订单，若发生错误则打印错误信息并返回空向量。
         self.trade_ctx.history_orders(opts).await.unwrap_or_else(|e| {
-            eprintln!("获取历史订单出错: {}", e); // 直接打印错误信息
+            error!("获取历史订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         })
     }
@@ -124,7 +124,7 @@ impl Service {
         &self,
     ) -> Vec<AccountBalance> {
         let resp = self.trade_ctx.account_balance(None).await.unwrap_or_else(|e| {
-            eprintln!("获取账户余额出错: {}", e); // 直接打印错误信息
+            error!("获取账户余额出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的列表
         });
         resp
@@ -142,7 +142,7 @@ impl Service {
         order_id: String,
     ) {
         let resp = self.trade_ctx.cancel_order(order_id).await.unwrap_or_else(|e| {
-            eprintln!("取消订单出错: {}", e); // 直接打印错误信息
+            error!("取消订单出错: {}", e); // 直接打印错误信息
         });
         resp
     }
@@ -155,7 +155,7 @@ impl Service {
         &self,
     ) -> Vec<FundPositionChannel> {
         let resp = self.trade_ctx.fund_positions(None).await.unwrap_or_else(|e| {
-            eprintln!("获取账户持仓出错: {}", e); // 直接打印错误信息
+            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
             FundPositionsResponse { channels: Vec::new() }
         });
         if resp.channels.is_empty() {
@@ -172,7 +172,7 @@ impl Service {
         &self,
     ) -> Vec<StockPositionChannel> {
         let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
-            eprintln!("获取账户持仓出错: {}", e); // 直接打印错误信息
+            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
             StockPositionsResponse { channels: Vec::new() }
         });
         if resp.channels.is_empty() {
@@ -206,7 +206,7 @@ impl Service {
             _ => pd = Period::UnknownPeriod
         }
         let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions).await.unwrap_or_else(|e| {
-            eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
+            error!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
         resp
@@ -216,7 +216,7 @@ impl Service {
         &self,
     ) -> MarketTemperature {
         let resp = self.quote_ctx.market_temperature(Market::US).await.unwrap_or_else(|e| {
-            eprintln!("获取行情数据出错: {}", e); // 直接打印错误信息
+            error!("获取行情数据出错: {}", e); // 直接打印错误信息
             MarketTemperature {
                 temperature: 0,
                 description: "".to_string(),
@@ -224,6 +224,14 @@ impl Service {
                 sentiment: 0,
                 timestamp: datetime!(2024-01-01 12:59:59.5 -5),
             }
+        });
+        resp
+    }
+ 
+    pub async fn watchlist(&self) -> Vec<WatchlistGroup> {
+        let resp = self.quote_ctx.watchlist().await.unwrap_or_else(|e| {
+            error!("获取自选列表出错: {}", e); // 直接打印错误信息
+            Vec::new() // 返回空的订单列表
         });
         resp
     }
