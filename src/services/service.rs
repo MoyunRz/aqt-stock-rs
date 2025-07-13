@@ -195,14 +195,21 @@ impl Service {
         let count = 365;
         let pd;
         match period.as_str() {
-            "1d" => pd = Period::Day,
-            "1w" => pd = Period::Week,
+            "1m" => pd = Period::OneMinute,
+            "2m" => pd = Period::TwoMinute,
+            "3m" => pd = Period::ThreeMinute,
+            "5m" => pd = Period::FiveMinute,
+            "10m" => pd = Period::TenMinute,
             "15m" => pd = Period::FifteenMinute,
+            "20m" => pd = Period::TwentyMinute,
+            "30m" => pd = Period::ThirtyMinute,
+            "45m" => pd = Period::FortyFiveMinute,
             "1h" => pd = Period::SixtyMinute,
             "2h" => pd = Period::TwoHour,
             "3h" => pd = Period::ThreeHour,
             "4h" => pd = Period::FourHour,
-            "5m" => pd = Period::FiveMinute,
+            "1d" => pd = Period::Day,
+            "1w" => pd = Period::Week,
             _ => pd = Period::UnknownPeriod
         }
         let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions).await.unwrap_or_else(|e| {
