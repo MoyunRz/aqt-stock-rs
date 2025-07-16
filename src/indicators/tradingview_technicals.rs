@@ -94,6 +94,10 @@ impl TradingTechnicals {
     }
 
     pub fn calculate(&self) -> (f64, f64, f64) {
+        // 如果为空的话，返回0
+        if self.values.is_null() {
+            return (0.0, 0.0, 0.0);
+        }
         // 结构化归纳
         let summary_signal = match self.values.get("Recommend.All").and_then(|x| x.as_f64()) {
             Some(val) if val > 0.25 && val < 0.6=> 1.0,

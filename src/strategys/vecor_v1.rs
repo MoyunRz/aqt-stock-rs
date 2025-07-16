@@ -365,14 +365,23 @@ impl VecorStrategy {
         candle: Vec<Candlestick>,
         stock: StockPosition,
     ) -> bool {
+        // 检查蜡烛图数据是否足够且有持仓
         if candle.len() < 3 || stock.available_quantity.is_zero() {
             return false;
         }
+
+        // 获取当前价格和持仓成本价
         let cur_price = candle.last().unwrap().close;
         let cost_price = stock.cost_price;
+
+        // 计算止盈价格（基于配置的止盈比例）
         let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
+
+        // 如果当前价格高于止盈价格，并且前一个价格出现回落，则触发止盈条件
         if tp_ratio * cost_price < cur_price {
             let prev_price = candle.get(candle.len() - 2).unwrap().close;
+
+            // 当前价格较前一个价格下跌超过0.1%，认为开始回撤，满足卖出条件
             if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
             }
