@@ -22,6 +22,7 @@ use std::error::Error;
 use std::ops::Add;
 use std::sync::Arc;
 use time::{format_description, Duration, OffsetDateTime, UtcOffset};
+use crate::calculates::base_calculate::BaseCalculate;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -391,7 +392,7 @@ impl VecorStrategy {
     }
 
     // 持仓是否达到止盈条件
-    pub fn handler_close_position(
+    pub async fn handler_close_position(
         sym: SymbolConfig,
         candle: Vec<Candlestick>,
         stock: StockPosition,
@@ -412,6 +413,17 @@ impl VecorStrategy {
         if tp_ratio * cost_price < cur_price {
             let prev_price = candle.get(candle.len() - 2).unwrap().close;
 
+            let mut sym_str = sym.symbol;
+            sym_str = sym_str.replace(".US", "");
+            sym_str = format!("{}:{}", sym.symbol_type, sym_str);
+
+            let technicals = TradingTechnicals::new(sym_str.as_str()).await;
+            let (summary_signal,_,_) = technicals.clone().calculate();
+
+            if summary_signal < 0f64 {
+                return true;
+            }
+            
             // 当前价格较前一个价格下跌超过0.1%，认为开始回撤，满足卖出条件
             if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
