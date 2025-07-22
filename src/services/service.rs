@@ -41,8 +41,7 @@ impl Service {
     ) -> Vec<Order> {
         let mut opts = GetHistoryOrdersOptions::new()
             .symbol(symbol)
-            .status([OrderStatus::Filled, OrderStatus::New])
-            .side(OrderSide::Buy)
+            .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew, OrderStatus::NotReported])
             .market(Market::US);
         if let Some(start) = start_at {
             opts = opts.start_at(start); // 设置查询开始时间

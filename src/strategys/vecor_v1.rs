@@ -19,8 +19,9 @@ use longport::quote::{Candlestick};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
+use std::ops::Add;
 use std::sync::Arc;
-use time::OffsetDateTime;
+use time::{format_description, Duration, OffsetDateTime, UtcOffset};
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -56,6 +57,23 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.unix_timestamp();
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
+
+        // 获取用户的订单
+        let orders = self.
+            service.
+            get_history_orders(
+                event.symbol.clone().as_str(),
+                Some(event.ts.clone().add(Duration::hours(-24))),
+                Some(event.ts.clone()),
+            ).await;
+
+        // 获取订单状态，是否可以下单
+        let order_status = VecorStrategy::handler_orders(&self.service, orders, event.symbol.clone()).await;
+        if !order_status {
+            return Ok(());
+        }
+
+
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64)
             && !market_px.clone().is_zero()
@@ -78,7 +96,7 @@ impl Strategy for VecorStrategy {
             }
             let (symts,is_next) =  VecorStrategy::timestamp_to_time(candles_list.clone(), event.symbol.clone());
             if next_times.next_time == 0 {
-                self.next_run_time.push(symts); // 插入新的 SymbolTimeData 到 Vec 中 
+                self.next_run_time.push(symts); // 插入新的 SymbolTimeData 到 Vec 中
                 // 新的k线
                 if is_next {
                     return Ok(());
@@ -86,7 +104,7 @@ impl Strategy for VecorStrategy {
             } else {
                 // 如果已经有记录，则可以在这里进行更新操作
                 // 更新指定索引位置的值
-                self.next_run_time[index] = symts; 
+                self.next_run_time[index] = symts;
             }
             // 下单
             // 获取用户的持仓
@@ -144,11 +162,6 @@ impl Strategy for VecorStrategy {
                     }
                 }
 
-                // 获取用户的订单
-                let orders = self
-                    .service
-                    .get_today_orders(event.symbol.clone().as_str())
-                    .await;
                 let mut quantity = decimal!(0.0);
                 // 根据总资产进行下单
                 if usd_bal > decimal!(0.0) && inds == OrderSide::Buy {
@@ -167,17 +180,11 @@ impl Strategy for VecorStrategy {
                     return Ok(());
                 }
 
-                // 获取订单状态，是否可以下单
-                let order_status =
-                    VecorStrategy::handler_orders(&self.service, orders, event.symbol.clone())
-                        .await;
-                if order_status {
-                    let resp = self
-                        .service
-                        .submit_order(event.symbol.clone(), inds, market_px.clone(), quantity)
-                        .await;
-                    info!("{:?}", resp);
-                }
+                let resp = self
+                    .service
+                    .submit_order(event.symbol.clone(), inds, market_px.clone(), quantity)
+                    .await;
+                info!("{:?}", resp);
             }
         }
         Ok(())
@@ -210,23 +217,23 @@ impl VecorStrategy {
     }
 
     pub fn timestamp_to_time(cs: Vec<Candle>,symbol:String) -> (SymbolTimeData,bool) {
-        
+
         let le = cs.clone().len();
-        
+
         let cs1 = cs[le - 1].clone();
         let cs2 = cs[le - 2].clone();
         let cs3 = cs[le - 3].clone();
-        
+
         let pts = cs2.timestamp - cs3.timestamp;
         let lts = cs1.timestamp - cs2.timestamp;
-        
+
         let symts = SymbolTimeData {
             symbol,
             interval_time: pts.clone(),
             next_time: cs2.timestamp + pts*2,
             last_time: cs2.timestamp,
         };
-        
+
         if pts - lts > 10 {
             return (symts, false);
         }
@@ -273,28 +280,34 @@ impl VecorStrategy {
     }
 
     /// handler_orders 处理订单
-    /// - 判断是不是2个小时内下过单
+    /// - 判断是不是4个小时内下过单
     /// - 判断订单状态是否合适继续下单
+
     pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
-        // let ts = 1_000;
-        let h2ts = 10 * 60 * 60;
-        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
-        // 判断是不是2个小时内下过单
+        // 定义4小时的时间窗口（以秒为单位）
+        let h2ts = 4 * 3600;
+        // 获取当前香港时间
+        let now_hk = OffsetDateTime::now_utc()
+            .to_offset(UtcOffset::from_hms(8, 0, 0).unwrap()); // UTC+8 for Hong Kong/Shanghai
+        let now_ts = now_hk.unix_timestamp();
+
         for o in orders {
             if o.symbol == symbol {
-                // 检查订单提交时间是否在最近两小时内
-                // let used_time = (now_ts - o.submitted_at.to_utc().clone().unix_timestamp())/3600;
-                // info!("used_time   {:?}",used_time);
-                // info!("submitted_at   {:?}",o.submitted_at.to_utc().clone().unix_timestamp());
-                // info!("OffsetDateTime {:?}",now_ts.clone());
-                if o.submitted_at.to_utc().unix_timestamp() > (now_ts - h2ts) {
-                    return false; // 若在两小时内返回false，避免频繁下单
+                // 检查订单提交时间是否在最近4小时内
+                // let format = format_description::parse(
+                //     "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]",
+                // ).unwrap();
+                // 将订单提交时间转换为香港时间
+                let submitted_at_hk = o.submitted_at.to_offset(UtcOffset::from_hms(8, 0, 0).unwrap());
+                // println!("订单提交时间（香港时间）：{}", submitted_at_hk.format(&format).unwrap());
+                // 使用香港时间的 Unix 时间戳进行比较
+                let submitted_at_ts = submitted_at_hk.unix_timestamp();
+                if submitted_at_ts > (now_ts - h2ts) {
+                    return false; // 若在4小时内返回false，避免频繁下单
                 }
-
                 // 判断订单状态是否为新订单、等待提交或部分成交
                 if o.status == OrderStatus::New
                     || o.status == OrderStatus::WaitToNew
-                    || o.status == OrderStatus::PartialFilled
                     || o.status == OrderStatus::NotReported
                 {
                     // 取消订单
@@ -409,5 +422,3 @@ impl VecorStrategy {
         false
     }
 }
-// 1752711471
-// 1752768900
