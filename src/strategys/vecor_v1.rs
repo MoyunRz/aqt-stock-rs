@@ -58,22 +58,6 @@ impl Strategy for VecorStrategy {
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
 
-        // 获取用户的订单
-        let orders = self.
-            service.
-            get_history_orders(
-                event.symbol.clone().as_str(),
-                Some(event.ts.clone().add(Duration::hours(-24))),
-                Some(event.ts.clone()),
-            ).await;
-
-        // 获取订单状态，是否可以下单
-        let order_status = VecorStrategy::handler_orders(&self.service, orders, event.symbol.clone()).await;
-        if !order_status {
-            return Ok(());
-        }
-
-
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64)
             && !market_px.clone().is_zero()
@@ -162,6 +146,20 @@ impl Strategy for VecorStrategy {
                     }
                 }
 
+                // 获取用户的订单
+                let orders = self.
+                    service.
+                    get_history_orders(
+                        event.symbol.clone().as_str(),
+                        Some(event.ts.clone().add(Duration::hours(-24))),
+                        Some(event.ts.clone()),
+                    ).await;
+
+                // 获取订单状态，是否可以下单
+                let order_status = VecorStrategy::handler_orders(&self.service, orders, event.symbol.clone()).await;
+                if !order_status {
+                    return Ok(());
+                }
                 let mut quantity = decimal!(0.0);
                 // 根据总资产进行下单
                 if usd_bal > decimal!(0.0) && inds == OrderSide::Buy {
