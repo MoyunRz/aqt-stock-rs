@@ -97,7 +97,8 @@ impl Strategy for VecorStrategy {
             let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
 
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
-            if VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()) {
+            let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
+            if can_close {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
