@@ -21,8 +21,7 @@ use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
 use std::ops::Add;
 use std::sync::Arc;
-use time::{format_description, Duration, OffsetDateTime, UtcOffset};
-use crate::calculates::base_calculate::BaseCalculate;
+use time::{Duration, OffsetDateTime, UtcOffset};
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
