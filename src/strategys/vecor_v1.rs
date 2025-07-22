@@ -349,7 +349,12 @@ impl VecorStrategy {
         // 首先处理异步调用，避免在同步代码中混合异步调用
         let mut sym_str = symbol.symbol;
         sym_str = sym_str.replace(".US", "");
-        sym_str = format!("{}:{}", symbol.symbol_type, sym_str);
+        if symbol.symbol_type.clone() == "CBOE" {
+            sym_str = format!("CBOE-{}", sym_str);
+        }
+        if symbol.symbol_type.clone() == "NASDAQ" {
+            sym_str = format!("NASDAQ:{}", sym_str);
+        }
         let technicals = TradingTechnicals::new(sym_str.as_str()).await;
 
         let defult_rules = DefultRules {};
@@ -423,7 +428,7 @@ impl VecorStrategy {
             if summary_signal < 0f64 {
                 return true;
             }
-            
+
             // 当前价格较前一个价格下跌超过0.1%，认为开始回撤，满足卖出条件
             if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
