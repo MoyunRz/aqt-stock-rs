@@ -152,7 +152,7 @@ impl Strategy for VecorStrategy {
                     service.
                     get_history_orders(
                         event.symbol.clone().as_str(),
-                        Some(event.ts.clone().add(Duration::hours(-24))),
+                        Some(event.ts.clone().add(Duration::hours(-4))),
                         Some(event.ts.clone()),
                     ).await;
 
