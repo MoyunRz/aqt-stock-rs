@@ -3,7 +3,7 @@ use log::error;
 use longport::{decimal, Decimal, Market, QuoteContext, TradeContext};
 use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions, WatchlistGroup};
 use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
-use time::macros::datetime;
+use time::macros::{datetime, offset};
 use time::{Duration, OffsetDateTime};
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
@@ -36,25 +36,35 @@ impl Service {
     pub async fn get_history_orders(
         &self,
         symbol: &str,
-        start_at: Option<OffsetDateTime>,
-        end_at: Option<OffsetDateTime>,
+        start_at: i64, // Unix timestamp in seconds
+        end_at: i64,   // Unix timestamp in seconds
     ) -> Vec<Order> {
         let mut opts = GetHistoryOrdersOptions::new()
             .symbol(symbol)
-            .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew, OrderStatus::NotReported])
+            .status([
+                OrderStatus::Filled,
+                OrderStatus::New,
+                OrderStatus::WaitToNew,
+                OrderStatus::NotReported,
+            ])
             .market(Market::US);
-        if let Some(start) = start_at {
+        if  start_at !=0 {
+            let start = OffsetDateTime::from_unix_timestamp(start_at).unwrap();
             opts = opts.start_at(start); // 设置查询开始时间
         }
-        if let Some(end) = end_at {
+        if  end_at !=0 {
+            let end = OffsetDateTime::from_unix_timestamp(end_at).unwrap();
             opts = opts.end_at(end); // 设置查询结束时间
         }
-
-        // 调用 `history_orders` 方法获取历史订单，若发生错误则打印错误信息并返回空向量。
-        self.trade_ctx.history_orders(opts).await.unwrap_or_else(|e| {
-            error!("获取历史订单出错: {}", e); // 直接打印错误信息
-            Vec::new() // 返回空的订单列表
-        })
+        // Call history_orders and handle errors
+        let resp = self.trade_ctx.history_orders(opts).await.unwrap_or_else(|e| {
+            error!("Failed to fetch historical orders: {}", e);
+            Vec::new() // Return empty order list on error
+        });
+        // 按照时间降序
+        let mut sorted_resp = resp.clone();
+        sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+        sorted_resp
     }
 
     /// 获取今日订单列表。
@@ -76,7 +86,11 @@ impl Service {
             error!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        resp
+        //根据时间进行排序
+        // 按照时间降序
+        let mut sorted_resp = resp.clone();
+        sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+        sorted_resp
     }
 
     /// 提交订单。

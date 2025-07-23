@@ -54,10 +54,9 @@ impl Strategy for VecorStrategy {
     /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error>> {
         // 判断当前的数据时间
-        let ts = event.ts.unix_timestamp();
+        let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
-
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64)
             && !market_px.clone().is_zero()
@@ -152,12 +151,12 @@ impl Strategy for VecorStrategy {
                     service.
                     get_history_orders(
                         event.symbol.clone().as_str(),
-                        Some(event.ts.clone().add(Duration::hours(-4))),
-                        Some(event.ts.clone()),
+                        0,
+                        event.ts.clone().unix_timestamp(),
                     ).await;
 
                 // 获取订单状态，是否可以下单
-                let order_status = VecorStrategy::handler_orders(&self.service, orders, event.symbol.clone()).await;
+                let order_status = VecorStrategy::handler_orders(&self.service, orders, event).await;
                 if !order_status {
                     return Ok(());
                 }
@@ -282,26 +281,16 @@ impl VecorStrategy {
     /// - 判断是不是4个小时内下过单
     /// - 判断订单状态是否合适继续下单
 
-    pub async fn handler_orders(service: &Service, orders: Vec<Order>, symbol: String) -> bool {
+    pub async fn handler_orders(service: &Service, orders: Vec<Order>, event: &MarketData) -> bool {
         // 定义4小时的时间窗口（以秒为单位）
-        let h2ts = 4 * 3600;
-        // 获取当前香港时间
-        let now_hk = OffsetDateTime::now_utc()
-            .to_offset(UtcOffset::from_hms(8, 0, 0).unwrap()); // UTC+8 for Hong Kong/Shanghai
-        let now_ts = now_hk.unix_timestamp();
-
+        let h2ts = 28 * 3600;
+        let now_ts = event.ts.clone().unix_timestamp();
         for o in orders {
-            if o.symbol == symbol {
-                // 检查订单提交时间是否在最近4小时内
-                // let format = format_description::parse(
-                //     "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]",
-                // ).unwrap();
-                // 将订单提交时间转换为香港时间
-                let submitted_at_hk = o.submitted_at.to_offset(UtcOffset::from_hms(8, 0, 0).unwrap());
-                // println!("订单提交时间（香港时间）：{}", submitted_at_hk.format(&format).unwrap());
-                // 使用香港时间的 Unix 时间戳进行比较
-                let submitted_at_ts = submitted_at_hk.unix_timestamp();
-                if submitted_at_ts > (now_ts - h2ts) {
+            if o.symbol == event.symbol.clone() {
+                let submitted_at = o.submitted_at.unix_timestamp();
+                // println!("{}", submitted_at.clone());
+                // println!("{}", now_ts.clone() - h2ts.clone() );
+                if submitted_at > now_ts-h2ts{
                     return false; // 若在4小时内返回false，避免频繁下单
                 }
                 // 判断订单状态是否为新订单、等待提交或部分成交
