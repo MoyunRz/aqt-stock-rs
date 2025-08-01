@@ -301,8 +301,8 @@ impl VecorStrategy {
         for o in orders {
             if o.symbol == event.symbol.clone() {
                 let submitted_at = o.submitted_at.unix_timestamp();
-                // println!("{}", submitted_at.clone());
-                // println!("{}", now_ts.clone() - h2ts.clone() );
+                println!("{}", submitted_at.clone());
+                println!("{}", now_ts.clone() - h2ts.clone() );
                 if submitted_at > now_ts-h2ts{
                     return false; // 若在4小时内返回false，避免频繁下单
                 }
