@@ -35,16 +35,16 @@ impl<T: Strategy + Send> Executor<T> {
 
         // 设置 24 小时超时（以秒为单位）
         let timeout_duration = Duration::from_secs(15 * 60); // 24 hours
-        let mut message_count = 0;
+        // let mut message_count = 0;
 
         // 处理接收到的市场数据
         loop {
             match timeout(timeout_duration, self.quote_receiver.recv()).await {
                 Ok(Some(event)) => {
-                    message_count += 1;
-                    if message_count % 100 == 0 {
-                        info!("Processed {} market data messages", message_count);
-                    }
+                    // message_count += 1;
+                    // if message_count % 100 == 0 {
+                    //     info!("Processed {} market data messages", message_count);
+                    // }
                     
                     // 收到消息，执行策略
                     if let Err(e) = self.executor.execute(&event).await {
