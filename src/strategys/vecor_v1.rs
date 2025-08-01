@@ -110,22 +110,24 @@ impl Strategy for VecorStrategy {
             }
             // TODO 聚合技术判断
             let inds = VecorStrategy::handler_indicators(candles_list, sym.clone()).await;
-            info!("对{}进行技术指标聚合判断:{}", event.symbol.clone(), inds);
+            info!("对{} 进行技术指标聚合判断:{}", event.symbol.clone(), inds);
             if inds == OrderSide::Buy
                 && !sym_position.cost_price.is_zero()
                 && sym_position.cost_price * decimal!(0.99) <= market_px.clone()
             {
+                info!("{} 持仓价格:{:?}市场价格:{:?}", event.symbol.clone(),sym_position.cost_price * decimal!(0.99),  market_px.clone());
                 return Ok(());
             }
             if inds == OrderSide::Sell
                 && !sym_position.cost_price.is_zero()
                 && sym_position.cost_price >= market_px.clone() * decimal!(0.99)
             {
+                info!("{} 持仓价格:{:?}市场价格:{:?}", event.symbol.clone(),sym_position.cost_price * decimal!(0.99),  market_px.clone());
                 return Ok(());
             }
             // TODO 指标指出可以买卖
             if inds != OrderSide::Unknown {
-                // info!("获取用户的资金");
+                info!("获取用户的资金");
                 // 获取用户的资金
                 let balance = self.service.account_balance().await;
                 if balance.is_empty() {
