@@ -56,9 +56,7 @@ impl Strategy for VecorStrategy {
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
         // 只处理收尾的K线
-        if (next_times.next_time == 0 || next_times.next_time < ts as u64)
-            && !market_px.clone().is_zero()
-        {
+        if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self
@@ -425,7 +423,7 @@ impl VecorStrategy {
             if summary_signal < 0f64 {
                 return true;
             }
-            
+
             // 当前价格较前一个价格下跌超过0.1%，认为开始回撤，满足卖出条件
             if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
