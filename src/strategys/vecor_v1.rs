@@ -19,9 +19,7 @@ use longport::quote::{Candlestick};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
-use std::ops::Add;
 use std::sync::Arc;
-use time::{Duration, OffsetDateTime, UtcOffset};
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -222,8 +220,17 @@ impl VecorStrategy {
         let cs2 = cs[le - 2].clone();
         let cs3 = cs[le - 3].clone();
 
-        let pts = cs2.timestamp - cs3.timestamp;
-        let lts = cs1.timestamp - cs2.timestamp;
+        // 添加边界检查，防止整数溢出
+        let pts = if cs2.timestamp >= cs3.timestamp {
+            cs2.timestamp - cs3.timestamp
+        } else {
+            0 // 如果时间戳顺序错误，返回0
+        };
+        let lts = if cs1.timestamp >= cs2.timestamp {
+            cs1.timestamp - cs2.timestamp
+        } else {
+            0 // 如果时间戳顺序错误，返回0
+        };
 
         let symts = SymbolTimeData {
             symbol,
@@ -232,7 +239,11 @@ impl VecorStrategy {
             last_time: cs2.timestamp,
         };
 
-        if pts - lts > 10 {
+        // 修复整数溢出问题：使用 checked_sub 或比较绝对值
+        if pts > lts && pts - lts > 10 {
+            return (symts, false);
+        }
+        if lts > pts && lts - pts > 10 {
             return (symts, false);
         }
         (symts, true)
