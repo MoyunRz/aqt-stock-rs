@@ -3,7 +3,7 @@ use log::error;
 use longport::{decimal, Decimal, Market, QuoteContext, TradeContext};
 use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions, WatchlistGroup};
 use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
-use time::macros::{datetime, offset};
+use time::macros::{datetime};
 use time::{Duration, OffsetDateTime};
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
