@@ -3,14 +3,16 @@ use std::sync::Arc;
 use std::time::Duration;
 use log::{error, info, warn};
 use longport::{QuoteContext, TradeContext};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tokio::time::timeout;
+use std::collections::HashMap;
 use crate::models::market::MarketData;
 use crate::strategys::strategy::Strategy;
 
 pub struct Executor<T: Strategy> {
     executor: T,
     quote_receiver: mpsc::Receiver<MarketData>,
+    symbol_locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
 impl<T: Strategy + Send> Executor<T> {
@@ -22,34 +24,41 @@ impl<T: Strategy + Send> Executor<T> {
         Executor {
             executor: T::new(quote_ctx, trade_ctx),
             quote_receiver,
+            symbol_locks: Mutex::new(HashMap::new()),
         }
     }
 
-
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         info!("Starting executor...");
-        
-        // 首先初始化内部策略
+
+        // Initialize internal strategy
         self.executor.run().await?;
         info!("Strategy initialized successfully");
 
-        // 设置 24 小时超时（以秒为单位）
+        // Set 24 hour timeout (in seconds)
         let timeout_duration = Duration::from_secs(15 * 60); // 24 hours
-        // let mut message_count = 0;
 
-        // 处理接收到的市场数据
+        // Process received market data
         loop {
             match timeout(timeout_duration, self.quote_receiver.recv()).await {
                 Ok(Some(event)) => {
-                    // message_count += 1;
-                    // if message_count % 100 == 0 {
-                    //     info!("Processed {} market data messages", message_count);
-                    // }
-                    
-                    // 收到消息，执行策略
+                    // Get or create lock for the specific symbol
+                    let symbol = event.symbol.clone(); // Assuming MarketData has a symbol field
+                    let lock = {
+                        let mut locks = self.symbol_locks.lock().await;
+                        locks
+                            .entry(symbol.clone())
+                            .or_insert_with(|| Arc::new(Mutex::new(())))
+                            .clone()
+                    };
+
+                    // Acquire lock for this symbol
+                    let _guard = lock.lock().await;
+
+                    // Execute strategy with acquired lock
                     if let Err(e) = self.executor.execute(&event).await {
-                        error!("Error executing strategy: {:?}", e);
-                        // 不要因为单次执行错误就退出，继续处理
+                        error!("Error executing strategy for symbol {}: {:?}", symbol, e);
+                        // Continue processing despite error
                     }
                 }
                 Ok(None) => {
@@ -62,9 +71,9 @@ impl<T: Strategy + Send> Executor<T> {
                 }
             }
         }
-        
+
         info!("Stopping executor...");
-        // 最后停止内部策略
+        // Stop internal strategy
         self.executor.stop()?;
         info!("Executor stopped successfully");
         Ok(())
