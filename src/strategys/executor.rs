@@ -4,7 +4,7 @@ use std::time::Duration;
 use log::{error, info, warn};
 use longport::{QuoteContext, TradeContext};
 use tokio::sync::{mpsc, Mutex};
-use tokio::time::timeout;
+use tokio::time::{sleep, timeout}; // 添加 sleep 导入
 use std::collections::HashMap;
 use crate::models::market::MarketData;
 use crate::strategys::strategy::Strategy;
@@ -28,52 +28,48 @@ impl<T: Strategy + Send> Executor<T> {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Starting executor...");
 
-        // Initialize internal strategy
         self.executor.run().await?;
         info!("Strategy initialized successfully");
 
-        // Set 24 hour timeout (in seconds)
-        let timeout_duration = Duration::from_secs(15 * 60); // 24 hours
+        let timeout_duration = Duration::from_secs(15 * 60); // 15分钟超时
+        let lock_delay = Duration::from_secs(3); // 锁延迟释放时间，例如 2 秒
 
-        // Process received market data
         loop {
             match timeout(timeout_duration, self.quote_receiver.recv()).await {
                 Ok(Some(event)) => {
-                    // Get or create lock for the specific symbol
-                    let symbol = event.symbol.clone(); // Assuming MarketData has a symbol field
+                    let symbol = event.symbol.clone();
                     let lock = {
                         let mut locks = self.symbol_locks.lock().await;
-                        locks
-                            .entry(symbol.clone())
+                        locks.entry(symbol.clone())
                             .or_insert_with(|| Arc::new(Mutex::new(())))
                             .clone()
                     };
-
-                    // Acquire lock for this symbol
-                    let _guard = lock.lock().await;
-
-                    // Execute strategy with acquired lock
-                    if let Err(e) = self.executor.execute(&event).await {
-                        error!("Error executing strategy for symbol {}: {:?}", symbol, e);
-                        // Continue processing despite error
-                    }
+                    {
+                        // 使用块级作用域确保 _guard 在 sleep 前存在
+                        let _guard = lock.lock().await;
+                        let execute_result = self.executor.execute(&event).await;
+                        if let Err(e) = execute_result {
+                            error!("Error executing strategy for symbol {}: {:?}", symbol, e);
+                        }
+                        // 在锁释放前休眠
+                        sleep(lock_delay).await;
+                    } // _guard 在此超出作用域，锁被释放
                 }
                 Ok(None) => {
                     info!("Channel closed, executor shutting down");
                     break;
                 }
                 Err(_) => {
-                    warn!("No message received for 24 hours, exiting");
+                    warn!("No message received for 15 minutes, exiting");
                     break;
                 }
             }
         }
 
         info!("Stopping executor...");
-        // Stop internal strategy
         self.executor.stop()?;
         info!("Executor stopped successfully");
         Ok(())

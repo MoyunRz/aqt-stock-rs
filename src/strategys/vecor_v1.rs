@@ -20,6 +20,7 @@ use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositio
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
 use std::sync::Arc;
+use async_trait::async_trait;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -30,6 +31,7 @@ pub struct VecorStrategy {
     next_run_time: Vec<SymbolTimeData>,
 }
 
+#[async_trait]
 impl Strategy for VecorStrategy {
     /// 创建一个新的 VecorStrategy 实例
     fn new(quote_ctx: Arc<QuoteContext>, trade_ctx: Arc<TradeContext>) -> Self {
@@ -44,13 +46,13 @@ impl Strategy for VecorStrategy {
     }
 
     /// 异步运行策略逻辑
-    async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>>{
         info!("vecor v1 策略程序开始执行");
         Ok(())
     }
 
     /// 异步执行策略逻辑，处理传入的市场数据
-    async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error>> {
+    async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
         // 判断当前的数据时间
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
@@ -153,11 +155,14 @@ impl Strategy for VecorStrategy {
                         event.ts.clone().unix_timestamp(),
                     ).await;
 
-                // 获取订单状态，是否可以下单
-                let order_status = VecorStrategy::handler_orders(&self.service, orders, event).await;
-                if !order_status {
+                if orders.len() > 0 {
                     return Ok(());
                 }
+                // 获取订单状态，是否可以下单
+                // let order_status = VecorStrategy::handler_orders(&self.service, orders, event).await;
+                // if !order_status {
+                //     return Ok(());
+                // }
                 let mut quantity = decimal!(0.0);
                 // 根据总资产进行下单
                 if usd_bal > decimal!(0.0) && inds == OrderSide::Buy {
@@ -187,7 +192,7 @@ impl Strategy for VecorStrategy {
     }
 
     /// 停止策略执行
-    fn stop(&mut self) -> Result<(), Box<dyn Error>> {
+    fn stop(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         warn!("vecor v1 策略程序停止");
         Ok(())
     }
