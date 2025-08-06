@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::calculates::cyc_calculate::CycCalculate;
 use crate::calculates::kdj_calculate::KdjCalculate;
 use crate::calculates::macd_calculate::MacdCalculate;
@@ -20,7 +21,10 @@ use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositio
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
 use std::sync::Arc;
+use std::time::Duration;
 use async_trait::async_trait;
+use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -29,6 +33,7 @@ pub struct VecorStrategy {
     /// 股票配置映射，存储每个股票的配置信息
     sym_config: Vec<SymbolConfig>,
     next_run_time: Vec<SymbolTimeData>,
+    symbol_locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
 #[async_trait]
@@ -42,6 +47,7 @@ impl Strategy for VecorStrategy {
             service: Service::new(quote_ctx, trade_ctx),
             sym_config,
             next_run_time: vec![],
+            symbol_locks: Mutex::new(HashMap::new()),
         }
     }
 
@@ -53,10 +59,22 @@ impl Strategy for VecorStrategy {
 
     /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
+
+        let lock_delay = Duration::from_secs(3); // 锁延迟释放时间，例如 2 秒
+        let lock = {
+            let mut locks = self.symbol_locks.lock().await;
+            locks.entry(event.symbol.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(())))
+                .clone()
+        };
+        // 开始竞争锁
+        let _guard = lock.lock().await;
+
         // 判断当前的数据时间
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
+
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
             // 获取币种信息
@@ -127,7 +145,7 @@ impl Strategy for VecorStrategy {
             }
             // TODO 指标指出可以买卖
             if inds != OrderSide::Unknown {
-                info!("获取用户的资金");
+                // info!("获取用户的资金");
                 // 获取用户的资金
                 let balance = self.service.account_balance().await;
                 if balance.is_empty() {
@@ -188,6 +206,8 @@ impl Strategy for VecorStrategy {
                 info!("{:?}", resp);
             }
         }
+        // 在锁释放前休眠
+        sleep(lock_delay).await;
         Ok(())
     }
 
@@ -304,8 +324,8 @@ impl VecorStrategy {
         for o in orders {
             if o.symbol == event.symbol.clone() {
                 let submitted_at = o.submitted_at.unix_timestamp();
-                println!("{}", submitted_at.clone());
-                println!("{}", now_ts.clone() - h2ts.clone() );
+                // println!("{}", submitted_at.clone());
+                // println!("{}", now_ts.clone() - h2ts.clone() );
                 if submitted_at > now_ts-h2ts{
                     return false; // 若在4小时内返回false，避免频繁下单
                 }
