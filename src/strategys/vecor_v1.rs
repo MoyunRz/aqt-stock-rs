@@ -60,16 +60,6 @@ impl Strategy for VecorStrategy {
     /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
 
-        let lock_delay = Duration::from_secs(3); // 锁延迟释放时间，例如 2 秒
-        let lock = {
-            let mut locks = self.symbol_locks.lock().await;
-            locks.entry(event.symbol.clone())
-                .or_insert_with(|| Arc::new(Mutex::new(())))
-                .clone()
-        };
-        // 开始竞争锁
-        let _guard = lock.lock().await;
-
         // 判断当前的数据时间
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
@@ -77,13 +67,23 @@ impl Strategy for VecorStrategy {
 
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
+
+            let lock_delay = Duration::from_secs(1); // 锁延迟释放时间，例如 2 秒
+            let lock = {
+                let mut locks = self.symbol_locks.lock().await;
+                locks.entry(event.symbol.clone())
+                    .or_insert_with(|| Arc::new(Mutex::new(())))
+                    .clone()
+            };
+            // 开始竞争锁
+            let _guard = lock.lock().await;
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self
                 .service
                 .get_candlesticks(event.symbol.clone(), sym.clone().period)
                 .await;
-            // info!("获取{}股票K线数据", event.symbol.clone());
+            info!("获取{}股票K线数据", event.symbol.clone());
             // 防止为空
             if candles.clone().is_empty() {
                 return Ok(());
@@ -124,6 +124,7 @@ impl Strategy for VecorStrategy {
                     )
                     .await;
                 info!("{:?}", resp);
+                sleep(lock_delay).await;
                 return Ok(());
             }
             // TODO 聚合技术判断
@@ -203,11 +204,13 @@ impl Strategy for VecorStrategy {
                     .service
                     .submit_order(event.symbol.clone(), inds, market_px.clone(), quantity)
                     .await;
+                sleep(lock_delay).await;
                 info!("{:?}", resp);
             }
+
         }
         // 在锁释放前休眠
-        sleep(lock_delay).await;
+
         Ok(())
     }
 
