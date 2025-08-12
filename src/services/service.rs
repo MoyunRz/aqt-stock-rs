@@ -66,7 +66,7 @@ impl Service {
             error!("Failed to fetch historical orders: {}", e);
             Vec::new() // Return empty order list on error
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         // 按照时间降序
         let mut sorted_resp = resp.clone();
         sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
@@ -93,7 +93,7 @@ impl Service {
             error!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         //根据时间进行排序
         // 按照时间降序
         let mut sorted_resp = resp.clone();
@@ -135,7 +135,7 @@ impl Service {
             error!("下单出错: {}", e); // 直接打印错误信息
             SubmitOrderResponse { order_id: "".to_string() }
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -151,7 +151,7 @@ impl Service {
             error!("获取账户余额出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的列表
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -170,7 +170,7 @@ impl Service {
         let resp = self.trade_ctx.cancel_order(order_id).await.unwrap_or_else(|e| {
             error!("取消订单出错: {}", e); // 直接打印错误信息
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -191,7 +191,7 @@ impl Service {
             sleep(std::time::Duration::from_secs(3)).await;
             return Vec::new();
         }
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp.channels
     }
 
@@ -212,7 +212,7 @@ impl Service {
             sleep(std::time::Duration::from_secs(3)).await;
             return Vec::new();
         }
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp.channels
     }
 
@@ -252,7 +252,7 @@ impl Service {
             error!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -270,7 +270,7 @@ impl Service {
                 timestamp: datetime!(2024-01-01 12:59:59.5 -5),
             }
         });
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
  
