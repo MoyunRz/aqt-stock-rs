@@ -5,6 +5,7 @@ use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeS
 use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
 use time::macros::{datetime};
 use time::{Duration, OffsetDateTime};
+use tokio::time::sleep;
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
 pub struct Service {
@@ -189,6 +190,7 @@ impl Service {
             StockPositionsResponse { channels: Vec::new() }
         });
         if resp.channels.is_empty() {
+            sleep(std::time::Duration::from_secs(3)).await;
             return Vec::new();
         }
         resp.channels
