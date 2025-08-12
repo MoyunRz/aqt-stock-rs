@@ -34,7 +34,6 @@ pub struct VecorStrategy {
     sym_config: Vec<SymbolConfig>,
     next_run_time: Vec<SymbolTimeData>,
     symbol_locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
-    stock_positions: Mutex<Vec<StockPositionChannel>>,
 }
 
 #[async_trait]
@@ -49,7 +48,6 @@ impl Strategy for VecorStrategy {
             sym_config,
             next_run_time: vec![],
             symbol_locks: Mutex::new(HashMap::new()),
-            stock_positions: Mutex::new(Vec::new()),
         }
     }
 
@@ -107,7 +105,11 @@ impl Strategy for VecorStrategy {
                 // 更新指定索引位置的值
                 self.next_run_time[index] = symts;
             }
-            let sym_position = VecorStrategy::find_positions(&self.service,&self.stock_positions, event.symbol.clone()).await;
+            // 下单
+            // 获取用户的持仓
+            let positions = self.service.stock_positions().await;
+            let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
+
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
             if can_close {
@@ -340,29 +342,6 @@ impl VecorStrategy {
         }
         true
     }
-    pub async fn find_positions(
-        service: &Service,
-        positions: &Mutex<Vec<StockPositionChannel>>,
-        symbol: String,
-    ) -> StockPosition {
-        // Acquire the lock once
-        let mut positions_guard = positions.lock().await;
-        // Check if positions is empty
-        if positions_guard.is_empty() {
-            // Fetch stock positions from the service
-            let pos = service.stock_positions().await;
-            // Update the mutex with the new data
-            *positions_guard = pos;
-            // Delay after releasing the lock (if still needed)
-            sleep(Duration::from_secs(3)).await;
-        }
-        let posvec = positions_guard.clone();
-        if !positions_guard.is_empty() {
-            drop(positions_guard);
-        }
-        VecorStrategy::handler_positions(posvec,symbol.clone())
-    }
-
     pub fn handler_positions(
         positions: Vec<StockPositionChannel>,
         symbol: String,
