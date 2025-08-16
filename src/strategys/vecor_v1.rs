@@ -107,7 +107,10 @@ impl Strategy for VecorStrategy {
             }
             // 下单
             // 获取用户的持仓
-            let positions = self.service.stock_positions().await;
+            let (positions,ok) = self.service.stock_positions().await;
+            if !ok {
+                return Ok(());
+            }
             let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
 
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售

@@ -93,7 +93,7 @@ impl Service {
             error!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        sleep(std::time::Duration::from_millis(300)).await;
+        sleep(std::time::Duration::from_millis(500)).await;
         //根据时间进行排序
         // 按照时间降序
         let mut sorted_resp = resp.clone();
@@ -170,7 +170,7 @@ impl Service {
         let resp = self.trade_ctx.cancel_order(order_id).await.unwrap_or_else(|e| {
             error!("取消订单出错: {}", e); // 直接打印错误信息
         });
-        sleep(std::time::Duration::from_millis(300)).await;
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
 
@@ -184,14 +184,14 @@ impl Service {
         // 获取锁确保顺序执行
         let _guard = self.execution_lock.lock().await;
         let resp = self.trade_ctx.fund_positions(None).await.unwrap_or_else(|e| {
-            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
+            error!("fund positions 获取账户持仓出错: {}", e); // 直接打印错误信息
             FundPositionsResponse { channels: Vec::new() }
         });
         if resp.channels.is_empty() {
-            sleep(std::time::Duration::from_secs(3)).await;
+            sleep(std::time::Duration::from_secs(5)).await;
             return Vec::new();
         }
-        sleep(std::time::Duration::from_millis(300)).await;
+        sleep(std::time::Duration::from_millis(500)).await;
         resp.channels
     }
 
@@ -201,19 +201,36 @@ impl Service {
     /// 返回一个包含账户持仓的响应。如果发生错误，则打印错误信息并返回一个空的持仓列表。
     pub async fn stock_positions(
         &self,
-    ) -> Vec<StockPositionChannel> {
+    ) -> (Vec<StockPositionChannel>,bool) {
         // 获取锁确保顺序执行
         let _guard = self.execution_lock.lock().await;
-        let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
-            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
-            StockPositionsResponse { channels: Vec::new() }
-        });
-        if resp.channels.is_empty() {
-            sleep(std::time::Duration::from_secs(3)).await;
-            return Vec::new();
+        let resps = self.trade_ctx.stock_positions(None).await;
+
+        match resps {
+            Ok(resps) => {
+                sleep(std::time::Duration::from_millis(500)).await;
+                if resps.channels.is_empty() {
+                    sleep(std::time::Duration::from_secs(15)).await;
+                    return (Vec::new(),true)
+                }
+                (resps.channels,true)
+            },
+            Err(e) => {
+                error!("stock positions 获取账户持仓出错: {}", e); // 直接打印错误信息
+                sleep(std::time::Duration::from_secs(5)).await;
+                (Vec::new(),false)
+            }
         }
-        sleep(std::time::Duration::from_millis(300)).await;
-        resp.channels
+        // let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
+        //     error!("stock positions 获取账户持仓出错: {}", e); // 直接打印错误信息
+        //     StockPositionsResponse { channels: Vec::new() }
+        // });
+        // if resp.channels.is_empty() {
+        //     sleep(std::time::Duration::from_secs(15)).await;
+        //     return Vec::new();
+        // }
+        // sleep(std::time::Duration::from_millis(800)).await;
+        // resp.channels
     }
 
     /// 获取行情数据
@@ -252,7 +269,7 @@ impl Service {
             error!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        sleep(std::time::Duration::from_millis(300)).await;
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
 
@@ -270,7 +287,7 @@ impl Service {
                 timestamp: datetime!(2024-01-01 12:59:59.5 -5),
             }
         });
-        sleep(std::time::Duration::from_millis(300)).await;
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
  
