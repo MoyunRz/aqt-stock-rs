@@ -34,6 +34,7 @@ pub struct VecorStrategy {
     sym_config: Vec<SymbolConfig>,
     next_run_time: Vec<SymbolTimeData>,
     symbol_locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
+    last_order_time: Mutex<HashMap<String, i64>>, // symbol -> timestamp
 }
 
 #[async_trait]
@@ -48,6 +49,7 @@ impl Strategy for VecorStrategy {
             sym_config,
             next_run_time: vec![],
             symbol_locks: Mutex::new(HashMap::new()),
+            last_order_time: Mutex::new(HashMap::new()),
         }
     }
 
@@ -64,7 +66,6 @@ impl Strategy for VecorStrategy {
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
         let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
-
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
 
@@ -77,6 +78,19 @@ impl Strategy for VecorStrategy {
             };
             // 开始竞争锁
             let _guard = lock.lock().await;
+
+            let mut last_orders = self.last_order_time.lock().await;
+            let now_ts = event.ts.unix_timestamp();
+
+            if let Some(last_ts) = last_orders.get(&event.symbol) {
+                if now_ts - last_ts < 3600 * 4 { // 1小时内不重复下单
+                    sleep(lock_delay).await;
+                    return Ok(());
+                }
+            }
+            // 允许下单，更新时间
+            last_orders.insert(event.symbol.clone(), now_ts);
+
             // 获取币种信息
             let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self
@@ -86,11 +100,13 @@ impl Strategy for VecorStrategy {
             info!("获取{}股票K线数据", event.symbol.clone());
             // 防止为空
             if candles.clone().is_empty() {
+                sleep(lock_delay).await;
                 return Ok(());
             }
             let candles_list = VecorStrategy::handle_candles(event.symbol.clone(), candles.clone());
             // 防止为空
             if candles_list.clone().is_empty() {
+                sleep(lock_delay).await;
                 return Ok(());
             }
             let (symts,is_next) =  VecorStrategy::timestamp_to_time(candles_list.clone(), event.symbol.clone());
@@ -98,6 +114,7 @@ impl Strategy for VecorStrategy {
                 self.next_run_time.push(symts); // 插入新的 SymbolTimeData 到 Vec 中
                 // 新的k线
                 if is_next {
+                    sleep(lock_delay).await;
                     return Ok(());
                 }
             } else {
@@ -105,10 +122,16 @@ impl Strategy for VecorStrategy {
                 // 更新指定索引位置的值
                 self.next_run_time[index] = symts;
             }
+            if !is_next {
+                // 已经处理过这根K线，不再重复执行
+                sleep(lock_delay).await;
+                return Ok(());
+            }
             // 下单
             // 获取用户的持仓
             let (positions,ok) = self.service.stock_positions().await;
             if !ok {
+                sleep(lock_delay).await;
                 return Ok(());
             }
             let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
@@ -144,6 +167,7 @@ impl Strategy for VecorStrategy {
                 && !sym_position.cost_price.is_zero()
                 && sym_position.cost_price >= market_px.clone() * decimal!(0.99)
             {
+                sleep(lock_delay).await;
                 info!("{} 持仓价格:{:?}市场价格:{:?}", event.symbol.clone(),sym_position.cost_price * decimal!(0.99),  market_px.clone());
                 return Ok(());
             }
@@ -153,6 +177,7 @@ impl Strategy for VecorStrategy {
                 // 获取用户的资金
                 let balance = self.service.account_balance().await;
                 if balance.is_empty() {
+                    sleep(lock_delay).await;
                     return Ok(());
                 }
                 info!("获取用户的资金{:?}", balance);
@@ -178,6 +203,7 @@ impl Strategy for VecorStrategy {
                     ).await;
 
                 if orders.len() > 0 {
+                    sleep(lock_delay).await;
                     return Ok(());
                 }
                 // 获取订单状态，是否可以下单
@@ -200,6 +226,7 @@ impl Strategy for VecorStrategy {
 
                 // 数量为0直接返回
                 if quantity.is_zero() {
+                    sleep(lock_delay).await;
                     return Ok(());
                 }
 
@@ -210,10 +237,8 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 info!("{:?}", resp);
             }
-
         }
         // 在锁释放前休眠
-
         Ok(())
     }
 
