@@ -33,7 +33,6 @@ pub struct VecorStrategy {
     /// 股票配置映射，存储每个股票的配置信息
     sym_config: Vec<SymbolConfig>,
     next_run_time: Vec<SymbolTimeData>,
-    symbol_locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
     last_order_time: Mutex<HashMap<String, i64>>, // symbol -> timestamp
 }
 
@@ -48,7 +47,6 @@ impl Strategy for VecorStrategy {
             service: Service::new(quote_ctx, trade_ctx),
             sym_config,
             next_run_time: vec![],
-            symbol_locks: Mutex::new(HashMap::new()),
             last_order_time: Mutex::new(HashMap::new()),
         }
     }
@@ -69,19 +67,10 @@ impl Strategy for VecorStrategy {
         // 只处理收尾的K线
         if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
 
-            let lock_delay = Duration::from_secs(1); // 锁延迟释放时间，例如 2 秒
-            let lock = {
-                let mut locks = self.symbol_locks.lock().await;
-                locks.entry(event.symbol.clone())
-                    .or_insert_with(|| Arc::new(Mutex::new(())))
-                    .clone()
-            };
-            // 开始竞争锁
-            let _guard = lock.lock().await;
+            let lock_delay = Duration::from_secs(5); // 锁延迟释放时间，例如 2 秒
 
             let mut last_orders = self.last_order_time.lock().await;
             let now_ts = event.ts.unix_timestamp();
-
             if let Some(last_ts) = last_orders.get(&event.symbol) {
                 if now_ts - last_ts < 3600 * 4 { // 1小时内不重复下单
                     sleep(lock_delay).await;
