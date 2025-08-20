@@ -194,7 +194,7 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 获取用户的订单
-                let orders = self.
+                let (orders,ok) = self.
                     service.
                     get_history_orders(
                         event.symbol.clone().as_str(),
@@ -202,7 +202,7 @@ impl Strategy for VecorStrategy {
                         event.ts.clone().unix_timestamp(),
                     ).await;
 
-                if orders.len() > 0 {
+                if orders.len() > 0 || ok == 0 {
                     sleep(lock_delay).await;
                     return Ok(());
                 }

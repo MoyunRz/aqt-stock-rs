@@ -42,7 +42,7 @@ impl Service {
         symbol: &str,
         start_at: i64, // Unix timestamp in seconds
         end_at: i64,   // Unix timestamp in seconds
-    ) -> Vec<Order> {
+    ) ->( Vec<Order>,i64) {
         let _guard = self.execution_lock.lock().await;
         let mut opts = GetHistoryOrdersOptions::new()
             .symbol(symbol)
@@ -61,16 +61,22 @@ impl Service {
             let end = OffsetDateTime::from_unix_timestamp(end_at).unwrap();
             opts = opts.end_at(end); // 设置查询结束时间
         }
+
         // Call history_orders and handle errors
-        let resp = self.trade_ctx.history_orders(opts).await.unwrap_or_else(|e| {
-            error!("Failed to fetch historical orders: {}", e);
-            Vec::new() // Return empty order list on error
-        });
-        sleep(std::time::Duration::from_millis(300)).await;
-        // 按照时间降序
-        let mut sorted_resp = resp.clone();
-        sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
-        sorted_resp
+        match self.trade_ctx.history_orders(opts).await {
+            Ok(resp) =>{
+                sleep(std::time::Duration::from_millis(300)).await;
+                // 按照时间降序
+                let mut sorted_resp = resp.clone();
+                sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+                (sorted_resp,1)
+            },
+            Err(e) => {
+                error!("Failed to fetch historical orders: {}", e);
+                sleep(std::time::Duration::from_millis(1000)).await;
+                (Vec::new(),0) // Return empty order list on error
+            }
+        }
     }
 
     /// 获取今日订单列表。
