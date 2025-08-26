@@ -15,7 +15,7 @@ use crate::models::market::MarketData;
 use crate::models::symbol_time::SymbolTimeData;
 use crate::services::service::Service;
 use crate::strategys::strategy::Strategy;
-use log::{info, warn};
+use log::{debug, info, warn};
 use longport::quote::{Candlestick};
 use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
@@ -25,6 +25,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use crate::indicators::fibonacci::Fibonacci;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -98,6 +99,9 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 return Ok(());
             }
+
+            let val = VecorStrategy::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
+
             let (symts,is_next) =  VecorStrategy::timestamp_to_time(candles_list.clone(), event.symbol.clone());
             if next_times.next_time == 0 {
                 self.next_run_time.push(symts); // 插入新的 SymbolTimeData 到 Vec 中
@@ -127,7 +131,7 @@ impl Strategy for VecorStrategy {
 
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
-            if can_close {
+            if can_close && val < 0.0 {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -214,7 +218,7 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 数量为0直接返回
-                if quantity.is_zero() {
+                if quantity.is_zero() || (val <= 0.0) {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
@@ -248,6 +252,8 @@ impl VecorStrategy {
                     symbol: cfg.symbol.clone(),
                     symbol_type: cfg.symbol_type.clone(),
                     volume: cfg.volume.clone(),
+                    high: cfg.high.clone(),
+                    low: cfg.low.clone(),
                     period: cfg.period.clone(),
                     tp_ratio: cfg.tp_ratio.clone(),
                     sl_ratio: cfg.sl_ratio.clone(),
@@ -434,6 +440,71 @@ impl VecorStrategy {
             return OrderSide::Sell;
         }
         OrderSide::Unknown
+    }
+
+    pub fn fibonacci(candles: Vec<Candle>,high: f64, low: f64) -> f64 {
+        let mut fib  = Fibonacci::new();
+        // 计算60天的斐波那契数列
+        let mut h = high;
+        let mut l =  low;
+        let pre_close = candles.clone().get(candles.len()-2).unwrap().close;
+        let pre_open = candles.clone().get(candles.len()-2).unwrap().open;
+        let markPx = candles.clone().last().unwrap().close;
+        for candle in candles {
+            // 看看有没有更高的high
+            if candle.high > h {
+                h = candle.high;
+            }
+            if candle.low < l{
+                l = candle.low;
+            }
+        }
+        let h_float = h;
+        let l_float = l;
+        let res = fib.calculate(h_float, l_float);
+        match res {
+            Ok(res) => {
+                // 获取 fibonacci 数列
+                // 查看当前价格处于第几序列之间
+                let fib_levels = res;
+                let levels = fib_levels.clone();
+                debug!("------------------- 斐波那契数数列 -------------------");
+                debug!("市场价格 {:?} ",markPx.clone());
+                debug!("{:?}",levels.clone());
+                debug!("--------------------------------------------------");
+                // 获取当前价格处于第几序列之间
+                for (i, level) in fib_levels.iter().enumerate() {
+
+                    if i == fib_levels.len() - 1 {
+                        return 0.0;
+                    }
+                    if markPx >= *level && markPx < levels[i + 1] {
+                        // level: 488.99 1
+                        // markPx
+                        // level: 416.99 2
+                        // pre_close
+                        // level: 372.45 3
+                        // level: 336.45 4
+                        // level: 300.44 5
+                        // level: 249.19 6
+                        // level: 183.90 7
+
+                        // 查看之前的k线是不是在前一个序列之前
+                        if i > 3  && pre_close <= levels[i+1]  {
+                            // 建仓加仓
+                            return 1.0 + i as f64;
+                        }
+                        // 查看之前的k线是不是在前一个序列之前
+                        if (pre_close < pre_open && pre_open > levels[i]) || (pre_close > pre_open && pre_close > levels[i]) {
+                            // 清仓
+                            return -1.0;
+                        }
+                    }
+                }
+                0.0
+            },
+            Err(e) => panic!("{}", e),
+        }
     }
 
     // 持仓是否达到止盈条件

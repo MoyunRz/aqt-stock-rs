@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # AQT Stock Trading System Manager
@@ -8,13 +9,13 @@ set -e
 # 配置变量
 PROJECT_NAME="aqt_stock"
 PID_FILE="$PROJECT_NAME.pid"
-DAEMON_PID_FILE="$PROJECT_NAME.daemon.pid"
 LOG_FILE="logs/application.log"
 CONFIG_FILE="config.yaml"
 LOG_CONFIG="log4rs.yaml"
-DAEMON_LOG_FILE="logs/daemon.log"
-MAX_RESTART_ATTEMPTS=3
-RESTART_DELAY=5
+# 删除了 DAEMON_PID_FILE="$PROJECT_NAME.daemon.pid"
+# 删除了 DAEMON_LOG_FILE="logs/daemon.log"
+# 删除了 MAX_RESTART_ATTEMPTS=3
+# 删除了 RESTART_DELAY=5
 
 # 颜色定义
 RED='\033[0;31m'
@@ -72,30 +73,7 @@ is_running() {
     fi
 }
 
-# 检查守护进程是否正在运行
-is_daemon_running() {
-    if [ -f "$DAEMON_PID_FILE" ]; then
-        local pid=$(cat "$DAEMON_PID_FILE")
-        if ps -p "$pid" > /dev/null 2>&1; then
-            return 0  # running
-        else
-            # PID文件存在但进程不存在，清理PID文件
-            rm -f "$DAEMON_PID_FILE"
-            return 1  # not running
-        fi
-    else
-        return 1  # not running
-    fi
-}
-
-# 获取守护进程ID
-get_daemon_pid() {
-    if [ -f "$DAEMON_PID_FILE" ]; then
-        cat "$DAEMON_PID_FILE"
-    else
-        echo ""
-    fi
-}
+# 删除了 is_daemon_running 函数
 
 # 获取进程ID
 get_pid() {
@@ -154,7 +132,7 @@ build_project() {
 # 启动项目
 start() {
     local mode=${1:-debug}
-    local with_daemon=${2:-false}
+    # 删除了 local with_daemon=${2:-false}
     
     print_header
     print_info "启动 AQT Stock Trading System..."
@@ -189,10 +167,7 @@ start() {
         print_info "使用 '$0 logs' 查看实时日志"
         print_info "使用 '$0 status' 查看运行状态"
         
-        # 如果启用了守护进程模式，启动守护进程
-        if [ "$with_daemon" = "true" ]; then
-            start_daemon $mode
-        fi
+        # 删除了守护进程启动代码
     else
         print_error "服务启动失败"
         if [ -f "logs/stdout.log" ]; then
@@ -205,15 +180,12 @@ start() {
 
 # 停止项目
 stop() {
-    local stop_daemon=${1:-true}
+    # 删除了 local stop_daemon=${1:-true}
     
     print_header
     print_info "停止 AQT Stock Trading System..."
     
-    # 如果指定停止守护进程，先停止守护进程
-    if [ "$stop_daemon" = "true" ] && is_daemon_running; then
-        stop_daemon
-    fi
+    # 删除了守护进程停止代码
     
     if ! is_running; then
         print_warning "项目未在运行"
@@ -251,139 +223,23 @@ stop() {
     fi
 }
 
-# 启动守护进程
-start_daemon() {
-    local mode=${1:-debug}
-    
-    if is_daemon_running; then
-        local daemon_pid=$(get_daemon_pid)
-        print_warning "守护进程已在运行中 (PID: $daemon_pid)"
-        return 0
-    fi
-    
-    print_info "启动守护进程..."
-    
-    # 启动守护进程脚本
-    nohup bash -c "
-        # 守护进程主循环
-        restart_count=0
-        last_restart_time=0
-        
-        while true; do
-            # 检查主程序是否在运行
-            if [ ! -f '$PID_FILE' ] || ! ps -p \$(cat '$PID_FILE') > /dev/null 2>&1; then
-                # 主程序已停止，检查是否需要重启
-                current_time=\$(date +%s)
-                time_since_last_restart=\$((current_time - last_restart_time))
-                
-                if [ \$restart_count -lt $MAX_RESTART_ATTEMPTS ] && [ \$time_since_last_restart -ge $RESTART_DELAY ]; then
-                    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] 检测到程序异常退出，尝试重启 (\$((restart_count + 1))/$MAX_RESTART_ATTEMPTS)\" >> '$DAEMON_LOG_FILE'
-                    
-                    # 清理旧的PID文件
-                    rm -f '$PID_FILE'
-                    
-                    # 重启程序
-                    if [ '$mode' = 'release' ]; then
-                        nohup ./target/release/$PROJECT_NAME > logs/stdout.log 2>&1 &
-                    else
-                        nohup ./target/debug/$PROJECT_NAME > logs/stdout.log 2>&1 &
-                    fi
-                    
-                    new_pid=\$!
-                    echo \$new_pid > '$PID_FILE'
-                    
-                    # 等待检查是否启动成功
-                    sleep 3
-                    if ps -p \$new_pid > /dev/null 2>&1; then
-                        echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] 重启成功 (PID: \$new_pid)\" >> '$DAEMON_LOG_FILE'
-                        restart_count=0
-                    else
-                        echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] 重启失败\" >> '$DAEMON_LOG_FILE'
-                        ((restart_count++))
-                    fi
-                    
-                    last_restart_time=\$current_time
-                else
-                    if [ \$restart_count -ge $MAX_RESTART_ATTEMPTS ]; then
-                        echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] 已达到最大重试次数 ($MAX_RESTART_ATTEMPTS)，停止重启\" >> '$DAEMON_LOG_FILE'
-                    fi
-                fi
-            else
-                # 主程序正常运行，重置重试计数
-                restart_count=0
-            fi
-            
-            # 检查守护进程是否应该退出
-            if [ ! -f '$DAEMON_PID_FILE' ]; then
-                echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] 守护进程退出信号，停止监控\" >> '$DAEMON_LOG_FILE'
-                break
-            fi
-            
-            sleep 5
-        done
-    " > /dev/null 2>&1 &
-    
-    local daemon_pid=$!
-    echo $daemon_pid > "$DAEMON_PID_FILE"
-    
-    sleep 1
-    if is_daemon_running; then
-        print_success "守护进程启动成功 (PID: $daemon_pid)"
-        print_info "守护进程日志: $DAEMON_LOG_FILE"
-    else
-        print_error "守护进程启动失败"
-        exit 1
-    fi
-}
+# 删除了 start_daemon 函数
 
-# 停止守护进程
-stop_daemon() {
-    if ! is_daemon_running; then
-        print_warning "守护进程未在运行"
-        return 0
-    fi
-    
-    local daemon_pid=$(get_daemon_pid)
-    print_info "正在停止守护进程 (PID: $daemon_pid)..."
-    
-    # 删除守护进程PID文件，通知守护进程退出
-    rm -f "$DAEMON_PID_FILE"
-    
-    # 等待守护进程结束
-    local count=0
-    while is_daemon_running && [ $count -lt 10 ]; do
-        sleep 1
-        ((count++))
-        print_info "等待守护进程结束... ($count/10)"
-    done
-    
-    if is_daemon_running; then
-        print_warning "优雅停止失败，强制结束守护进程..."
-        kill -9 $daemon_pid
-        sleep 1
-    fi
-    
-    if ! is_daemon_running; then
-        print_success "守护进程已停止"
-    else
-        print_error "停止守护进程失败"
-        exit 1
-    fi
-}
+# 删除了 stop_daemon 函数
 
 # 重启项目
 restart() {
     local mode=${1:-debug}
-    local with_daemon=${2:-false}
+    # 删除了 local with_daemon=${2:-false}
     print_header
     print_info "重启 AQT Stock Trading System..."
     
     if is_running; then
-        stop false  # 不停止守护进程
+        stop # 删除了 false 参数
         sleep 2
     fi
     
-    start $mode $with_daemon
+    start $mode # 删除了 $with_daemon 参数
 }
 
 # 查看状态
@@ -403,17 +259,7 @@ status() {
         print_warning "服务未运行"
     fi
     
-    echo
-    if is_daemon_running; then
-        local daemon_pid=$(get_daemon_pid)
-        print_success "守护进程正在运行"
-        echo "  守护进程 PID: $daemon_pid"
-        echo "  运行时间: $(ps -o etime= -p $daemon_pid | tr -d ' ')"
-        echo "  最大重试次数: $MAX_RESTART_ATTEMPTS"
-        echo "  重试间隔: ${RESTART_DELAY}秒"
-    else
-        print_warning "守护进程未运行"
-    fi
+    # 删除了守护进程状态显示代码
     
     echo
     print_info "日志信息"
@@ -425,13 +271,7 @@ status() {
         echo "  主程序日志文件不存在"
     fi
     
-    if [ -f "$DAEMON_LOG_FILE" ]; then
-        echo "  守护进程日志: $DAEMON_LOG_FILE"
-        echo "  文件大小: $(du -h $DAEMON_LOG_FILE | cut -f1)"
-        echo "  最后修改: $(stat -f '%Sm' $DAEMON_LOG_FILE 2>/dev/null || stat -c '%y' $DAEMON_LOG_FILE 2>/dev/null)"
-    else
-        echo "  守护进程日志文件不存在"
-    fi
+    # 删除了守护进程日志信息显示代码
 }
 
 # 查看日志
@@ -465,26 +305,7 @@ error_logs() {
     fi
 }
 
-# 查看守护进程日志
-daemon_logs() {
-    local lines=${1:-50}
-    
-    if [ "$1" = "follow" ] || [ "$1" = "-f" ]; then
-        print_info "实时查看守护进程日志 (按 Ctrl+C 退出)..."
-        if [ -f "$DAEMON_LOG_FILE" ]; then
-            tail -f "$DAEMON_LOG_FILE"
-        else
-            print_warning "守护进程日志文件不存在"
-        fi
-    else
-        print_info "查看最近 $lines 行守护进程日志..."
-        if [ -f "$DAEMON_LOG_FILE" ]; then
-            tail -n "$lines" "$DAEMON_LOG_FILE"
-        else
-            print_warning "守护进程日志文件不存在"
-        fi
-    fi
-}
+# 删除了 daemon_logs 函数
 
 # 清理日志
 clean_logs() {
@@ -535,34 +356,24 @@ show_help() {
     echo "用法: $0 [命令] [选项]"
     echo
     echo "命令:"
-    echo "  start [debug|release] [daemon]  启动服务 (默认 debug 模式)"
-    echo "  stop                              停止服务"
-    echo "  restart [debug|release] [daemon] 重启服务"
-    echo "  status                            查看运行状态"
-    echo "  logs [行数|follow]                查看主程序日志"
-    echo "  daemon-logs [行数|follow]         查看守护进程日志"
-    echo "  error-logs                        查看错误日志"
-    echo "  clean-logs                        清理日志文件"
-    echo "  monitor                           监控模式"
-    echo "  health                            健康检查"
-    echo "  help                              显示帮助信息"
+    echo "  start [debug|release]         启动服务 (默认 debug 模式)"
+    echo "  stop                          停止服务"
+    echo "  restart [debug|release]       重启服务"
+    echo "  status                        查看运行状态"
+    echo "  logs [行数|follow]            查看主程序日志"
+    echo "  error-logs                    查看错误日志"
+    echo "  clean-logs                    清理日志文件"
+    echo "  monitor                       监控模式"
+    echo "  health                        健康检查"
+    echo "  help                          显示帮助信息"
     echo
-    echo "守护进程功能:"
-    echo "  - 自动监控主程序运行状态"
-    echo "  - 异常退出时自动重启 (最多 $MAX_RESTART_ATTEMPTS 次)"
-    echo "  - 重启间隔: ${RESTART_DELAY} 秒"
-    echo "  - 守护进程日志: $DAEMON_LOG_FILE"
-    echo
+    # 删除了守护进程功能说明
     echo "示例:"
-    echo "  $0 start                    # 启动服务 (debug 模式)"
-    echo "  $0 start release            # 启动服务 (release 模式)"
-    echo "  $0 start debug daemon       # 启动服务并启用守护进程"
-    echo "  $0 start release daemon     # 启动服务 (release 模式) 并启用守护进程"
-    echo "  $0 logs follow              # 实时查看主程序日志"
-    echo "  $0 daemon-logs follow       # 实时查看守护进程日志"
-    echo "  $0 logs 100                 # 查看最近100行主程序日志"
-    echo "  $0 daemon-logs 50           # 查看最近50行守护进程日志"
-    echo "  $0 restart release daemon   # 重启服务 (release 模式) 并启用守护进程"
+    echo "  $0 start                      # 启动服务 (debug 模式)"
+    echo "  $0 start release              # 启动服务 (release 模式)"
+    echo "  $0 logs follow                # 实时查看主程序日志"
+    echo "  $0 logs 100                   # 查看最近100行主程序日志"
+    echo "  $0 restart release            # 重启服务 (release 模式)"
     echo
 }
 
@@ -570,23 +381,15 @@ show_help() {
 main() {
     case "${1:-help}" in
         start)
-            # 检查是否启用守护进程
-            if [ "$3" = "daemon" ]; then
-                start ${2:-debug} true
-            else
-                start ${2:-debug} false
-            fi
+            # 修改了参数处理逻辑，删除了守护进程相关代码
+            start ${2:-debug}
             ;;
         stop)
             stop
             ;;
         restart)
-            # 检查是否启用守护进程
-            if [ "$3" = "daemon" ]; then
-                restart ${2:-debug} true
-            else
-                restart ${2:-debug} false
-            fi
+            # 修改了参数处理逻辑，删除了守护进程相关代码
+            restart ${2:-debug}
             ;;
         status)
             status
@@ -594,9 +397,7 @@ main() {
         logs)
             logs ${2:-50}
             ;;
-        daemon-logs)
-            daemon_logs ${2:-50}
-            ;;
+        # 删除了 daemon-logs 分支
         error-logs)
             error_logs
             ;;
@@ -622,4 +423,4 @@ main() {
 }
 
 # 运行主函数
-main "$@" 
+main "$@"
