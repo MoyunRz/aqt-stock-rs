@@ -449,7 +449,7 @@ impl VecorStrategy {
         let mut l =  low;
         let pre_close = candles.clone().get(candles.len()-2).unwrap().close;
         let pre_open = candles.clone().get(candles.len()-2).unwrap().open;
-        let markPx = candles.clone().last().unwrap().close;
+        let mark_px = candles.clone().last().unwrap().close;
         for candle in candles {
             // 看看有没有更高的high
             if candle.high > h {
@@ -468,8 +468,8 @@ impl VecorStrategy {
                 // 查看当前价格处于第几序列之间
                 let fib_levels = res;
                 let levels = fib_levels.clone();
-                debug!("------------------- 斐波那契数数列 -------------------");
-                debug!("市场价格 {:?} ",markPx.clone());
+                debug!("------------------- 斐波那契数列 -------------------");
+                debug!("市场价格 {:?} ",mark_px.clone());
                 debug!("{:?}",levels.clone());
                 debug!("--------------------------------------------------");
                 // 获取当前价格处于第几序列之间
@@ -478,21 +478,16 @@ impl VecorStrategy {
                     if i == fib_levels.len() - 1 {
                         return 0.0;
                     }
-                    if markPx >= *level && markPx < levels[i + 1] {
-                        // level: 488.99 1
-                        // markPx
-                        // level: 416.99 2
-                        // pre_close
-                        // level: 372.45 3
-                        // level: 336.45 4
-                        // level: 300.44 5
-                        // level: 249.19 6
-                        // level: 183.90 7
-
+                    if mark_px >= *level && mark_px < levels[i + 1] {
+                        
                         // 查看之前的k线是不是在前一个序列之前
                         if i > 3  && pre_close <= levels[i+1]  {
                             // 建仓加仓
                             return 1.0 + i as f64;
+                        }
+                        if i == fib_levels.len() - 2  && pre_close > pre_open {
+                            // 建仓加仓 在最底部，判断是否进行了止跌
+                            return 1.0;
                         }
                         // 查看之前的k线是不是在前一个序列之前
                         if (pre_close < pre_open && pre_open > levels[i]) || (pre_close > pre_open && pre_close > levels[i]) {

@@ -1,4 +1,3 @@
-use crate::indicators::candle::Candle;
 
 pub struct Fibonacci {
     levels: Vec<f64>,

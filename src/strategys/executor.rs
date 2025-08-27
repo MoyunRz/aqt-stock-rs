@@ -31,7 +31,7 @@ impl<T: Strategy + Send> Executor<T> {
         self.executor.run().await?;
         info!("Strategy initialized successfully");
 
-        let timeout_duration = Duration::from_secs(15 * 60); // 15分钟超时
+        let timeout_duration = Duration::from_secs(3 * 60); // 15分钟超时
         
 
         loop {
