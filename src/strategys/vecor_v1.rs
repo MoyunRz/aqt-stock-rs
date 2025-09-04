@@ -100,8 +100,7 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 return Ok(());
             }
-            let chipVal = IndicatorsV1::chip_distribution(candles_list.clone());
-            info!("对{} 进行筹码分布判断:{}", event.symbol.clone(), chipVal);
+
 
             let val = IndicatorsV1::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
             // 下单
@@ -158,7 +157,7 @@ impl Strategy for VecorStrategy {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
-                info!("获取用户的资金{:?}", balance);
+                // info!("获取用户的资金{:?}", balance);
                 // 循环balance获取美元金额
                 let mut usd_bal = Decimal::new(0, 3);
                 let mut total_cash = Decimal::new(0, 3);
@@ -208,7 +207,7 @@ impl Strategy for VecorStrategy {
                     .submit_order(event.symbol.clone(), inds, market_px.clone(), quantity)
                     .await;
                 sleep(lock_delay).await;
-                info!("{:?}", resp);
+                info!("下单成功！！！ {:?}", resp);
             }
         }
         // 在锁释放前休眠

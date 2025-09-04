@@ -1,5 +1,6 @@
 use log::debug;
 use longport::trade::OrderSide;
+use crate::calculates::chip_calculate::ChipCalculate;
 use crate::calculates::cyc_calculate::CycCalculate;
 use crate::calculates::fibonacci_calculate::FibonacciCalculate;
 use crate::calculates::kdj_calculate::KdjCalculate;
@@ -80,24 +81,7 @@ impl IndicatorsV1 {
             Err(e) => panic!("{}", e),
         }
     }
-    pub fn chip_distribution(candles: Vec<Candle>) -> f64 {
-        let mut distribution  = ChipDistribution::new();
-        let mark_px = candles.clone().last().unwrap().close;
-        let leves = distribution.calculate(&candles.clone());
-        // 当前价格在筹码最多的位置还是最少的位置？
-        if leves.len() > 0 {
-            let price = leves.get(0).unwrap().price;
-            if price > mark_px {
-                // 卖出
-                return -1.0;
-            }
-            if price < mark_px {
-                // 卖出
-                return 1.0;
-            }
-        }
-        0.0
-    }
+
 
     pub async fn handler_indicators(candles: Vec<Candle>, symbol: SymbolConfig) -> OrderSide {
         // 首先处理异步调用，避免在同步代码中混合异步调用
@@ -128,12 +112,16 @@ impl IndicatorsV1 {
         let techs = Box::new(TechnicalsCalculate {
             technicals: technicals.clone(),
         });
+        // let chip = Box::new(ChipCalculate {
+        //     candles: candles.clone(),
+        // });
         calculate.add_calculator(kdj);
         calculate.add_calculator(macd);
         calculate.add_calculator(stc);
         calculate.add_calculator(ut_bot);
         calculate.add_calculator(cyc);
         calculate.add_calculator(techs);
+        // calculate.add_calculator(chip);
         let res = calculate.execute_rules();
         if res > 0 {
             return OrderSide::Buy;

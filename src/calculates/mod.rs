@@ -7,3 +7,4 @@ pub mod utbot_calculate;
 pub mod market_calculate;
 pub mod technicals_calculate;
 pub mod fibonacci_calculate;
+pub mod chip_calculate;
