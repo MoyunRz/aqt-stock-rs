@@ -9,7 +9,7 @@ use crate::computes::calculate::Calculate;
 use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config;
 use crate::config::config::SymbolConfig;
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::market::MarketData;
 use crate::models::symbol_time::SymbolTimeData;
@@ -25,7 +25,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use crate::calculates::fibonacci_calculate::FibonacciCalculate;
+use crate::indicators::chip_distribution::ChipDistribution;
 use crate::indicators::fibonacci::Fibonacci;
+use crate::strategys::gconsts::get_time_by_period;
+use crate::strategys::indicators_v1::IndicatorsV1;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -33,7 +37,6 @@ pub struct VecorStrategy {
     service: Service,
     /// 股票配置映射，存储每个股票的配置信息
     sym_config: Vec<SymbolConfig>,
-    next_run_time: Vec<SymbolTimeData>,
     last_order_time: Mutex<HashMap<String, i64>>, // symbol -> timestamp
 }
 
@@ -47,7 +50,6 @@ impl Strategy for VecorStrategy {
         VecorStrategy {
             service: Service::new(quote_ctx, trade_ctx),
             sym_config,
-            next_run_time: vec![],
             last_order_time: Mutex::new(HashMap::new()),
         }
     }
@@ -60,16 +62,17 @@ impl Strategy for VecorStrategy {
 
     /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
-
-        // 判断当前的数据时间
+        // 获取信息
+        let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
+        // // 判断当前的数据时间
+        // let pd = get_time_by_period(sym.clone().period.as_str());
+        let pd = 60;
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
-        let (index, next_times) = VecorStrategy::get_sym_time_info(self.next_run_time.clone(), event.symbol.clone());
         // 只处理收尾的K线
-        if (next_times.next_time == 0 || next_times.next_time < ts as u64) && !market_px.clone().is_zero() {
-
+        // 判断当前价格不为零，并且时间戳是60000毫秒（即15分钟）的整数倍时才处理
+        if !market_px.is_zero() && ts % pd <= 3 {
             let lock_delay = Duration::from_secs(5); // 锁延迟释放时间，例如 2 秒
-
             let mut last_orders = self.last_order_time.lock().await;
             let now_ts = event.ts.unix_timestamp();
             if let Some(last_ts) = last_orders.get(&event.symbol) {
@@ -81,8 +84,6 @@ impl Strategy for VecorStrategy {
             // 允许下单，更新时间
             last_orders.insert(event.symbol.clone(), now_ts);
 
-            // 获取币种信息
-            let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
             let candles = self
                 .service
                 .get_candlesticks(event.symbol.clone(), sym.clone().period)
@@ -99,27 +100,10 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 return Ok(());
             }
+            let chipVal = IndicatorsV1::chip_distribution(candles_list.clone());
+            info!("对{} 进行筹码分布判断:{}", event.symbol.clone(), chipVal);
 
-            let val = VecorStrategy::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
-
-            let (symts,is_next) =  VecorStrategy::timestamp_to_time(candles_list.clone(), event.symbol.clone());
-            if next_times.next_time == 0 {
-                self.next_run_time.push(symts); // 插入新的 SymbolTimeData 到 Vec 中
-                // 新的k线
-                if is_next {
-                    sleep(lock_delay).await;
-                    return Ok(());
-                }
-            } else {
-                // 如果已经有记录，则可以在这里进行更新操作
-                // 更新指定索引位置的值
-                self.next_run_time[index] = symts;
-            }
-            if !is_next {
-                // 已经处理过这根K线，不再重复执行
-                sleep(lock_delay).await;
-                return Ok(());
-            }
+            let val = IndicatorsV1::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
             // 下单
             // 获取用户的持仓
             let (positions,ok) = self.service.stock_positions().await;
@@ -131,7 +115,8 @@ impl Strategy for VecorStrategy {
 
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
-            if can_close && val < 0.0 {
+
+            if can_close && val <= 0.0 {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -147,7 +132,7 @@ impl Strategy for VecorStrategy {
                 return Ok(());
             }
             // TODO 聚合技术判断
-            let inds = VecorStrategy::handler_indicators(candles_list, sym.clone()).await;
+            let inds = IndicatorsV1::handler_indicators(candles_list, sym.clone()).await;
             info!("对{} 进行技术指标聚合判断:{}", event.symbol.clone(), inds);
             if inds == OrderSide::Buy
                 && !sym_position.cost_price.is_zero()
@@ -199,11 +184,6 @@ impl Strategy for VecorStrategy {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
-                // 获取订单状态，是否可以下单
-                // let order_status = VecorStrategy::handler_orders(&self.service, orders, event).await;
-                // if !order_status {
-                //     return Ok(());
-                // }
                 let mut quantity = decimal!(0.0);
                 // 根据总资产进行下单
                 if usd_bal > decimal!(0.0) && inds == OrderSide::Buy {
@@ -263,65 +243,6 @@ impl VecorStrategy {
         sym
     }
 
-    pub fn timestamp_to_time(cs: Vec<Candle>,symbol:String) -> (SymbolTimeData,bool) {
-
-        let le = cs.clone().len();
-
-        let cs1 = cs[le - 1].clone();
-        let cs2 = cs[le - 2].clone();
-        let cs3 = cs[le - 3].clone();
-
-        // 添加边界检查，防止整数溢出
-        let pts = if cs2.timestamp >= cs3.timestamp {
-            cs2.timestamp - cs3.timestamp
-        } else {
-            0 // 如果时间戳顺序错误，返回0
-        };
-        let lts = if cs1.timestamp >= cs2.timestamp {
-            cs1.timestamp - cs2.timestamp
-        } else {
-            0 // 如果时间戳顺序错误，返回0
-        };
-
-        let symts = SymbolTimeData {
-            symbol,
-            interval_time: pts.clone(),
-            next_time: cs2.timestamp + pts*2,
-            last_time: cs2.timestamp,
-        };
-
-        // 修复整数溢出问题：使用 checked_sub 或比较绝对值
-        if pts > lts && pts - lts > 10 {
-            return (symts, false);
-        }
-        if lts > pts && lts - pts > 10 {
-            return (symts, false);
-        }
-        (symts, true)
-    }
-
-    // 获取股票时间信息
-    pub fn get_sym_time_info(
-        sym_config: Vec<SymbolTimeData>,
-        symbol: String,
-    ) -> (usize, SymbolTimeData) {
-        let mut sym = SymbolTimeData::new();
-        let mut index = 0;
-        for i in 0..sym_config.len() {
-            index = i;
-            let cfg = sym_config.get(i).unwrap();
-            if cfg.clone().symbol == symbol {
-                sym = SymbolTimeData {
-                    symbol: cfg.clone().symbol,
-                    interval_time: cfg.clone().interval_time,
-                    next_time: cfg.clone().next_time,
-                    last_time: cfg.clone().last_time,
-                };
-            }
-        }
-        (index, sym)
-    }
-
     pub fn handle_candles(symbol: String, candles: Vec<Candlestick>) -> Vec<Candle> {
         let candles = candles.clone();
         let cs = candles
@@ -339,35 +260,6 @@ impl VecorStrategy {
         cs
     }
 
-    /// handler_orders 处理订单
-    /// - 判断是不是4个小时内下过单
-    /// - 判断订单状态是否合适继续下单
-
-    pub async fn handler_orders(service: &Service, orders: Vec<Order>, event: &MarketData) -> bool {
-        // 定义4小时的时间窗口（以秒为单位）
-        let h2ts = 28 * 3600;
-        let now_ts = event.ts.clone().unix_timestamp();
-        for o in orders {
-            if o.symbol == event.symbol.clone() {
-                let submitted_at = o.submitted_at.unix_timestamp();
-                // println!("{}", submitted_at.clone());
-                // println!("{}", now_ts.clone() - h2ts.clone() );
-                if submitted_at > now_ts-h2ts{
-                    return false; // 若在4小时内返回false，避免频繁下单
-                }
-                // 判断订单状态是否为新订单、等待提交或部分成交
-                if o.status == OrderStatus::New
-                    || o.status == OrderStatus::WaitToNew
-                    || o.status == OrderStatus::NotReported
-                {
-                    // 取消订单
-                    let _ = service.cancel_order(o.order_id).await;
-                    return false; // 如果满足条件则返回false，防止重复操作
-                }
-            }
-        }
-        true
-    }
     pub fn handler_positions(
         positions: Vec<StockPositionChannel>,
         symbol: String,
@@ -394,112 +286,6 @@ impl VecorStrategy {
             }
         }
         sym_position
-    }
-
-    pub async fn handler_indicators(candles: Vec<Candle>, symbol: SymbolConfig) -> OrderSide {
-        // 首先处理异步调用，避免在同步代码中混合异步调用
-        let mut sym_str = symbol.symbol;
-        sym_str = sym_str.replace(".US", "");
-        sym_str = format!("{}:{}", symbol.symbol_type, sym_str);
-        let technicals = TradingTechnicals::new(sym_str.as_str()).await;
-
-        let defult_rules = DefultRules {};
-        let rules = defult_rules.create();
-        let mut calculate = Calculate::new(Box::new(rules));
-        let kdj = Box::new(KdjCalculate {
-            candles: candles.clone(),
-        });
-        let macd = Box::new(MacdCalculate {
-            candles: candles.clone(),
-        });
-        let ut_bot = Box::new(UTBotCalculate {
-            candles: candles.clone(),
-        });
-        let stc = Box::new(STCCalculate {
-            candles: candles.clone(),
-        });
-        let cyc = Box::new(CycCalculate {
-            candles: candles.clone(),
-        });
-        let techs = Box::new(TechnicalsCalculate {
-            technicals: technicals.clone(),
-        });
-
-        calculate.add_calculator(kdj);
-        calculate.add_calculator(macd);
-        calculate.add_calculator(stc);
-        calculate.add_calculator(ut_bot);
-        calculate.add_calculator(cyc);
-        calculate.add_calculator(techs);
-
-        let res = calculate.execute_rules();
-        if res > 0 {
-            return OrderSide::Buy;
-        }
-        if res < 0 {
-            return OrderSide::Sell;
-        }
-        OrderSide::Unknown
-    }
-
-    pub fn fibonacci(candles: Vec<Candle>,high: f64, low: f64) -> f64 {
-        let mut fib  = Fibonacci::new();
-        // 计算60天的斐波那契数列
-        let mut h = high;
-        let mut l =  low;
-        let pre_close = candles.clone().get(candles.len()-2).unwrap().close;
-        let pre_open = candles.clone().get(candles.len()-2).unwrap().open;
-        let mark_px = candles.clone().last().unwrap().close;
-        for candle in candles {
-            // 看看有没有更高的high
-            if candle.high > h {
-                h = candle.high;
-            }
-            if candle.low < l{
-                l = candle.low;
-            }
-        }
-        let h_float = h;
-        let l_float = l;
-        let res = fib.calculate(h_float, l_float);
-        match res {
-            Ok(res) => {
-                // 获取 fibonacci 数列
-                // 查看当前价格处于第几序列之间
-                let fib_levels = res;
-                let levels = fib_levels.clone();
-                debug!("------------------- 斐波那契数列 -------------------");
-                debug!("市场价格 {:?} ",mark_px.clone());
-                debug!("{:?}",levels.clone());
-                debug!("--------------------------------------------------");
-                // 获取当前价格处于第几序列之间
-                for (i, level) in fib_levels.iter().enumerate() {
-
-                    if i == fib_levels.len() - 1 {
-                        return 0.0;
-                    }
-                    if mark_px >= *level && mark_px < levels[i + 1] {
-                        
-                        // 查看之前的k线是不是在前一个序列之前
-                        if i > 3  && pre_close <= levels[i+1]  {
-                            // 建仓加仓
-                            return 1.0 + i as f64;
-                        }
-                        if i == fib_levels.len() - 2  && pre_close > pre_open {
-                            // 建仓加仓 在最底部，判断是否进行了止跌
-                            return 1.0;
-                        }
-                        // 查看之前的k线是不是在前一个序列之前
-                        if (pre_close < pre_open && pre_open > levels[i]) || (pre_close > pre_open && pre_close > levels[i]) {
-                            // 清仓
-                            return -1.0;
-                        }
-                    }
-                }
-                0.0
-            },
-            Err(e) => panic!("{}", e),
-        }
     }
 
     // 持仓是否达到止盈条件

@@ -41,7 +41,7 @@ loggers:
     additive: false
 
   aqt_stock::strategys:
-    level: info
+    level: debug
     appenders:
       - file_appender
       - console_appender
@@ -54,6 +54,6 @@ loggers:
     additive: false
 
 root:
-  level: info
+  level: debug
   appenders:
     - console_appender

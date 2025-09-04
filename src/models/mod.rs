@@ -4,3 +4,4 @@ pub mod position;
 pub mod stock;
 pub mod market;
 pub mod symbol_time;
+pub mod candle;

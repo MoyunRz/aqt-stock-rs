@@ -1,5 +1,5 @@
 use std::vec;
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 
 /// KDJ 指标结构体
 pub struct KDJ {
@@ -111,11 +111,13 @@ impl KDJ {
         self.lowest_low.push(lowest);
 
         // 计算RSV
-        if (highest - lowest).abs() < f64::EPSILON {
+        let x = if (highest - lowest).abs() < f64::EPSILON {
             50.0 // 避免除以零
         } else {
-            100.0 * (candles[index].close - lowest) / (highest - lowest)
-        }
+            let index_candle= candles.get(index).unwrap();
+            100.0 * (index_candle.close - lowest) / (highest - lowest)
+        };
+        x
     }
 
     /// 重置 KDJ 计算器状态
@@ -200,12 +202,5 @@ impl KDJ {
         let prev_d = self.d_values[self.d_values.len() - 2];
 
         prev_k > prev_d && last_k < last_d
-    }
-}
-
-// 为 KDJ 实现 Debug trait 以便于打印调试信息
-impl std::fmt::Debug for KDJ {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "KDJ({}, {}, {})", self.k_period, self.d_period, self.j_period)
     }
 }

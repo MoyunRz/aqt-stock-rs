@@ -1,5 +1,5 @@
 use log4rs::encode::Color;
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 pub struct SchaffTrendCycle {
     length: usize,
     fast_length: usize,
@@ -173,7 +173,8 @@ impl SchaffTrendCycle {
         }
 
         for i in 0..actual_period {
-            sum += prices[i];
+            let val= prices.get(i).unwrap();
+            sum +=val;
         }
 
         let first_ema = sum / actual_period as f64;
@@ -182,7 +183,8 @@ impl SchaffTrendCycle {
         // 计算剩余的EMA
         for i in 1..prices.len() {
             let prev_ema = ema[i-1];
-            let current_ema = (prices[i] - prev_ema) * multiplier + prev_ema;
+            let val= prices.get(i).unwrap();
+            let current_ema = (val - prev_ema) * multiplier + prev_ema;
             ema.push(current_ema);
         }
 

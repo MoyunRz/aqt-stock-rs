@@ -9,7 +9,7 @@ use dotenv::dotenv;
 async fn main() -> Result<(), Box<dyn Error>> {
     // 加载 .env 文件中的配置
     dotenv().ok();
-    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
+    log4rs::init_file("log4rs.yaml", Default::default())?;
     let cfg = config::Configs::load().expect("TODO: panic message");
     debug!("启动配置 {:?}", cfg);
     sty::start_sty(cfg).await.unwrap_or_else(|e|{

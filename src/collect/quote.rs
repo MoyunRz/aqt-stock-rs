@@ -1,6 +1,6 @@
 use longport::{Config, quote::{QuoteContext, SubFlags}};
 use std::sync::Arc;
-use log::{error, info};
+use log::{error, info, warn};
 use longport::quote::{PushEvent, PushEventDetail};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -68,26 +68,25 @@ impl QuoteCollectors {
                             }
                         }
                         None => {
-                            info!("Quote receiver closed, exiting");
-                            break;
+                           warn!("Quote receiver closed, exiting");
+                           return;
                         }
                     }
                 }
                 // 处理关闭信号
                 _ = &mut shutdown_rx => {
-                    info!("Received shutdown signal, stopping quote collector");
-                    break;
+                    warn!("Received shutdown signal, stopping quote collector");
+                    // 取消订阅
+                    self.ctx.unsubscribe(self.symbols.clone(), self.sub_flags).await.unwrap();
+                    return;
                 }
             }
         }
-        
-        // 取消订阅
-        self.ctx.unsubscribe(self.symbols.clone(), self.sub_flags).await.unwrap();
     }
 
     /// 订阅当前保存的股票代码的行情数据
     pub async fn subscribe(&mut self, sender: mpsc::Sender<MarketData>) {
-        self.ctx.subscribe(&self.symbols, self.sub_flags, true).await.unwrap();
+        let _ = self.ctx.subscribe(self.symbols.clone(), self.sub_flags, true).await.unwrap();
         while let Some(msg) = self.receiver.recv().await {
             if let PushEventDetail::Quote(detail) = msg.detail {
                 if !detail.clone().last_done.is_zero() {

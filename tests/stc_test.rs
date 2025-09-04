@@ -1,4 +1,4 @@
-use aqt_stock::indicators::candle::Candle;
+use aqt_stock::models::candle::Candle;
 use aqt_stock::indicators::schaff_trend_cycle::SchaffTrendCycle;
 
 // 测试函数

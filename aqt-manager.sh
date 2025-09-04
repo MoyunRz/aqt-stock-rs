@@ -112,6 +112,7 @@ check_requirements() {
 
 # 编译项目
 build_project() {
+    rustup update stable
     local mode=${1:-debug}
     print_info "编译项目 ($mode 模式)..."
     

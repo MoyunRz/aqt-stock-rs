@@ -31,7 +31,7 @@ impl<T: Strategy + Send> Executor<T> {
         self.executor.run().await?;
         info!("Strategy initialized successfully");
 
-        let timeout_duration = Duration::from_secs(3 * 60); // 15分钟超时
+        let timeout_duration = Duration::from_secs(60); // 15分钟超时
         
 
         loop {
@@ -48,7 +48,7 @@ impl<T: Strategy + Send> Executor<T> {
                     break;
                 }
                 Err(_) => {
-                    warn!("No message received for 15 minutes, exiting");
+                    warn!("No message received for 60 secs, exiting");
                     break;
                 }
             }

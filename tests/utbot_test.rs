@@ -1,6 +1,6 @@
 mod kdj_test;
 
-use aqt_stock::indicators::candle::Candle;
+use aqt_stock::models::candle::Candle;
 use aqt_stock::indicators::utbot::UTBot;
 #[test]
 fn utbot_test() {
