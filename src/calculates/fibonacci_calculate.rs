@@ -1,7 +1,6 @@
-use log::{debug, info};
+use log::{debug, error};
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::models::candle::Candle;
-use crate::indicators::cyc::CYC;
 use crate::indicators::fibonacci::Fibonacci;
 
 pub struct FibonacciCalculate {
@@ -18,7 +17,7 @@ impl BaseCalculate for FibonacciCalculate {
         // 计算60天的斐波那契数列
         let mut h = self.high;
         let mut l =  self.low;
-        let mut candles =  self.candles.clone();
+        let candles =  self.candles.clone();
         let pre_close = candles.clone().get(candles.len()-3).unwrap().close;
         let pre_open = candles.clone().get(candles.len()-3).unwrap().open;
         let mark_px = candles.clone().last().unwrap().close;
@@ -73,7 +72,10 @@ impl BaseCalculate for FibonacciCalculate {
                 }
                 0
             },
-            Err(e) => 0,
+            Err(e) => {
+                error!("{}", e);
+                0
+            },
         }
     }
 

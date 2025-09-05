@@ -1,7 +1,6 @@
 use log::info;
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::computes::defult_rules::CulRules;
-use crate::models::candle::Candle;
 
 pub struct Calculate {
     calculators: Vec<Box<dyn BaseCalculate>>,

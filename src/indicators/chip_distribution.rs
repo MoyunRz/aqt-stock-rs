@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use chrono::Local;
 use crate::models::candle::Candle;
 
 pub struct ChipDistribution {}
@@ -10,13 +9,7 @@ pub struct ChipLevel {
     pub price: f64,
     pub volume: f64, // 累积成交量（筹码量）
 }
-// 交易日数据
-#[derive(Debug)]
-struct TradeData {
-    // date: DateTime<Local>,
-    pub price: f64,
-    pub volume: f64,
-}
+
 impl ChipDistribution {
     pub fn new() -> Self {
         ChipDistribution {}

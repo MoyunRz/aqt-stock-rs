@@ -1,23 +1,14 @@
 use std::collections::HashMap;
-use crate::calculates::cyc_calculate::CycCalculate;
-use crate::calculates::kdj_calculate::KdjCalculate;
-use crate::calculates::macd_calculate::MacdCalculate;
-use crate::calculates::stc_calculate::STCCalculate;
-use crate::calculates::technicals_calculate::TechnicalsCalculate;
-use crate::calculates::utbot_calculate::UTBotCalculate;
-use crate::computes::calculate::Calculate;
-use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config;
 use crate::config::config::SymbolConfig;
 use crate::models::candle::Candle;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::market::MarketData;
-use crate::models::symbol_time::SymbolTimeData;
 use crate::services::service::Service;
 use crate::strategys::strategy::Strategy;
-use log::{debug, info, warn};
+use log::{info, warn};
 use longport::quote::{Candlestick};
-use longport::trade::{Order, OrderSide, OrderStatus, StockPosition, StockPositionChannel};
+use longport::trade::{ OrderSide, StockPosition, StockPositionChannel};
 use longport::{decimal, Decimal, QuoteContext, TradeContext};
 use std::error::Error;
 use std::sync::Arc;
@@ -25,10 +16,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
-use crate::calculates::fibonacci_calculate::FibonacciCalculate;
-use crate::indicators::chip_distribution::ChipDistribution;
-use crate::indicators::fibonacci::Fibonacci;
-use crate::strategys::gconsts::get_time_by_period;
 use crate::strategys::indicators_v1::IndicatorsV1;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略

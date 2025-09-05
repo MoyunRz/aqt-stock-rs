@@ -1,8 +1,6 @@
 use log::debug;
 use longport::trade::OrderSide;
-use crate::calculates::chip_calculate::ChipCalculate;
 use crate::calculates::cyc_calculate::CycCalculate;
-use crate::calculates::fibonacci_calculate::FibonacciCalculate;
 use crate::calculates::kdj_calculate::KdjCalculate;
 use crate::calculates::macd_calculate::MacdCalculate;
 use crate::calculates::stc_calculate::STCCalculate;
@@ -11,14 +9,11 @@ use crate::calculates::utbot_calculate::UTBotCalculate;
 use crate::computes::calculate::Calculate;
 use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config::SymbolConfig;
-use crate::indicators::chip_distribution::ChipDistribution;
 use crate::indicators::fibonacci::Fibonacci;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::candle::Candle;
 
-pub struct IndicatorsV1 {
-    pub candles: Vec<Candle>
-}
+pub struct IndicatorsV1 {}
 
 impl IndicatorsV1 {
 

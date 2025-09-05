@@ -1,9 +1,6 @@
-use log::{debug, info};
 use crate::calculates::base_calculate::BaseCalculate;
 use crate::indicators::chip_distribution::ChipDistribution;
 use crate::models::candle::Candle;
-use crate::indicators::cyc::CYC;
-use crate::indicators::fibonacci::Fibonacci;
 
 pub struct ChipCalculate {
     pub candles: Vec<Candle>,

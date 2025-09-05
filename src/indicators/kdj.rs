@@ -90,7 +90,7 @@ impl KDJ {
         self.d_values.push(d);
 
         // 计算J值
-        let j = 3.0 * k - 2.0 * d;
+        let j = self.j_period as f64 * k - 2.0 * d;
         self.j_values.push(j);
     }
 

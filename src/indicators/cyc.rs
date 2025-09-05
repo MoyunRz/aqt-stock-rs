@@ -1,4 +1,3 @@
-use std::marker::PointeeSized;
 use std::vec::Vec;
 use crate::models::candle::Candle;
 
