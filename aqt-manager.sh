@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # AQT Stock Trading System Manager
@@ -11,6 +12,10 @@ PID_FILE="$PROJECT_NAME.pid"
 LOG_FILE="logs/application.log"
 CONFIG_FILE="config.yaml"
 LOG_CONFIG="log4rs.yaml"
+# 删除了 DAEMON_PID_FILE="$PROJECT_NAME.daemon.pid"
+# 删除了 DAEMON_LOG_FILE="logs/daemon.log"
+# 删除了 MAX_RESTART_ATTEMPTS=3
+# 删除了 RESTART_DELAY=5
 
 # 颜色定义
 RED='\033[0;31m'
@@ -68,6 +73,8 @@ is_running() {
     fi
 }
 
+# 删除了 is_daemon_running 函数
+
 # 获取进程ID
 get_pid() {
     if [ -f "$PID_FILE" ]; then
@@ -105,6 +112,7 @@ check_requirements() {
 
 # 编译项目
 build_project() {
+    rustup update nightly
     local mode=${1:-debug}
     print_info "编译项目 ($mode 模式)..."
     
@@ -125,6 +133,7 @@ build_project() {
 # 启动项目
 start() {
     local mode=${1:-debug}
+    # 删除了 local with_daemon=${2:-false}
     
     print_header
     print_info "启动 AQT Stock Trading System..."
@@ -158,6 +167,8 @@ start() {
         print_info "日志文件: $LOG_FILE"
         print_info "使用 '$0 logs' 查看实时日志"
         print_info "使用 '$0 status' 查看运行状态"
+        
+        # 删除了守护进程启动代码
     else
         print_error "服务启动失败"
         if [ -f "logs/stdout.log" ]; then
@@ -170,8 +181,12 @@ start() {
 
 # 停止项目
 stop() {
+    # 删除了 local stop_daemon=${1:-true}
+    
     print_header
     print_info "停止 AQT Stock Trading System..."
+    
+    # 删除了守护进程停止代码
     
     if ! is_running; then
         print_warning "项目未在运行"
@@ -209,18 +224,23 @@ stop() {
     fi
 }
 
+# 删除了 start_daemon 函数
+
+# 删除了 stop_daemon 函数
+
 # 重启项目
 restart() {
     local mode=${1:-debug}
+    # 删除了 local with_daemon=${2:-false}
     print_header
     print_info "重启 AQT Stock Trading System..."
     
     if is_running; then
-        stop
+        stop # 删除了 false 参数
         sleep 2
     fi
     
-    start $mode
+    start $mode # 删除了 $with_daemon 参数
 }
 
 # 查看状态
@@ -240,15 +260,19 @@ status() {
         print_warning "服务未运行"
     fi
     
+    # 删除了守护进程状态显示代码
+    
     echo
     print_info "日志信息"
     if [ -f "$LOG_FILE" ]; then
-        echo "  日志文件: $LOG_FILE"
+        echo "  主程序日志: $LOG_FILE"
         echo "  文件大小: $(du -h $LOG_FILE | cut -f1)"
         echo "  最后修改: $(stat -f '%Sm' $LOG_FILE 2>/dev/null || stat -c '%y' $LOG_FILE 2>/dev/null)"
     else
-        echo "  日志文件不存在"
+        echo "  主程序日志文件不存在"
     fi
+    
+    # 删除了守护进程日志信息显示代码
 }
 
 # 查看日志
@@ -281,6 +305,8 @@ error_logs() {
         print_warning "日志文件不存在"
     fi
 }
+
+# 删除了 daemon_logs 函数
 
 # 清理日志
 clean_logs() {
@@ -331,23 +357,24 @@ show_help() {
     echo "用法: $0 [命令] [选项]"
     echo
     echo "命令:"
-    echo "  start [debug|release]  启动服务 (默认 debug 模式)"
-    echo "  stop                   停止服务"
-    echo "  restart [debug|release] 重启服务"
-    echo "  status                 查看运行状态"
-    echo "  logs [行数|follow]     查看日志"
-    echo "  error-logs             查看错误日志"
-    echo "  clean-logs             清理日志文件"
-    echo "  monitor                监控模式"
-    echo "  health                 健康检查"
-    echo "  help                   显示帮助信息"
+    echo "  start [debug|release]         启动服务 (默认 debug 模式)"
+    echo "  stop                          停止服务"
+    echo "  restart [debug|release]       重启服务"
+    echo "  status                        查看运行状态"
+    echo "  logs [行数|follow]            查看主程序日志"
+    echo "  error-logs                    查看错误日志"
+    echo "  clean-logs                    清理日志文件"
+    echo "  monitor                       监控模式"
+    echo "  health                        健康检查"
+    echo "  help                          显示帮助信息"
     echo
+    # 删除了守护进程功能说明
     echo "示例:"
-    echo "  $0 start               # 启动服务 (debug 模式)"
-    echo "  $0 start release       # 启动服务 (release 模式)"
-    echo "  $0 logs follow         # 实时查看日志"
-    echo "  $0 logs 100            # 查看最近100行日志"
-    echo "  $0 restart release     # 重启服务 (release 模式)"
+    echo "  $0 start                      # 启动服务 (debug 模式)"
+    echo "  $0 start release              # 启动服务 (release 模式)"
+    echo "  $0 logs follow                # 实时查看主程序日志"
+    echo "  $0 logs 100                   # 查看最近100行主程序日志"
+    echo "  $0 restart release            # 重启服务 (release 模式)"
     echo
 }
 
@@ -355,12 +382,14 @@ show_help() {
 main() {
     case "${1:-help}" in
         start)
+            # 修改了参数处理逻辑，删除了守护进程相关代码
             start ${2:-debug}
             ;;
         stop)
             stop
             ;;
         restart)
+            # 修改了参数处理逻辑，删除了守护进程相关代码
             restart ${2:-debug}
             ;;
         status)
@@ -369,6 +398,7 @@ main() {
         logs)
             logs ${2:-50}
             ;;
+        # 删除了 daemon-logs 分支
         error-logs)
             error_logs
             ;;
@@ -394,4 +424,4 @@ main() {
 }
 
 # 运行主函数
-main "$@" 
+main "$@"

@@ -1,4 +1,4 @@
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 pub struct MACD {
     fast_length: usize,
     slow_length: usize,
@@ -210,7 +210,8 @@ impl MACD {
         // 初始化EMA为前period个价格的平均值
         let mut sum = 0.0;
         for i in 0..period.min(prices.len()) {
-            sum += prices[i];
+            let val= prices.get(i).unwrap();
+            sum += val;
         }
 
         let first_ema = sum / period as f64;
@@ -219,7 +220,8 @@ impl MACD {
         // 计算剩余的EMA
         for i in 1..prices.len() {
             let prev_ema = ema[i-1];
-            let current_ema = (prices[i] - prev_ema) * multiplier + prev_ema;
+            let index_val= prices.get(i).unwrap();
+            let current_ema = (index_val - prev_ema) * multiplier + prev_ema;
             ema.push(current_ema);
         }
 
@@ -243,7 +245,8 @@ impl MACD {
         for i in period-1..values.len() {
             let mut sum = 0.0;
             for j in 0..period {
-                sum += values[i - j];
+                let index_val= values.get(i - j).unwrap();
+                sum += index_val;
             }
             sma.push(sum / period as f64);
         }

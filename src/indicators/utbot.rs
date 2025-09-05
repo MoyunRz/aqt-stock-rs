@@ -1,4 +1,4 @@
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 
 /// UT Bot 指标实现
 ///
@@ -82,11 +82,12 @@ impl UTBot {
         if self.use_heikin_ashi {
             // 计算平均K线
             for i in 0..candles.len() {
+                let val= candles.get(i).unwrap();
                 let ha_close = if i == 0 {
-                    (candles[i].open + candles[i].high + candles[i].low + candles[i].close) / 4.0
+                    (val.open + val.high + val.low + val.close) / 4.0
                 } else {
                     (self.source_values[i-1] +
-                        (candles[i].high + candles[i].low + candles[i].close) / 3.0) / 2.0
+                        (val.high + val.low + val.close) / 3.0) / 2.0
                 };
                 self.source_values.push(ha_close);
             }
@@ -100,17 +101,18 @@ impl UTBot {
     fn calculate_atr(&mut self, candles: &[Candle]) {
         // 简单实现 ATR 计算
         for i in 0..candles.len() {
+            let val= candles.get(i).unwrap();
             if i == 0 {
                 // 第一个值使用真实范围
-                let tr = candles[i].high - candles[i].low;
+                let tr = val.high - val.low;
                 self.atr_values.push(tr);
                 continue;
             }
-
+            let pval= candles.get(i-1).unwrap();
             // 计算真实范围
-            let tr1 = candles[i].high - candles[i].low;
-            let tr2 = (candles[i].high - candles[i-1].close).abs();
-            let tr3 = (candles[i].low - candles[i-1].close).abs();
+            let tr1 = val.high - val.low;
+            let tr2 = (val.high - pval.close).abs();
+            let tr3 = (val.low - pval.close).abs();
             let tr = tr1.max(tr2).max(tr3);
 
             // 计算ATR
@@ -276,13 +278,5 @@ impl UTBot {
         } else {
             false
         }
-    }
-}
-
-// 为 UTBot 实现 Debug trait 以便于打印调试信息
-impl std::fmt::Debug for UTBot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UTBot(key={}, atr_period={}, heikin_ashi={})",
-               self.key_value, self.atr_period, self.use_heikin_ashi)
     }
 }

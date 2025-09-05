@@ -1,4 +1,6 @@
+use std::error::Error;
 use std::sync::Arc;
+use async_trait::async_trait;
 use aqt_stock::strategys::strategy::Strategy;
 use longport::{Config, Decimal, QuoteContext, TradeContext};
 use tokio::sync::mpsc;
@@ -21,6 +23,7 @@ async fn test_vecor_executor() {
         trade_ctx: Arc<TradeContext>,
     }
 
+    #[async_trait]
     impl Strategy for MockStrategy {
         fn new(
             quote_ctx: Arc<QuoteContext>,
@@ -32,18 +35,18 @@ async fn test_vecor_executor() {
             }
         }
 
-        async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>>{
             // 模拟运行逻辑
             Ok(())
         }
 
-        async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn std::error::Error>> {
+        async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>> {
             // 模拟执行逻辑
 
             Ok(())
         }
 
-        fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        fn stop(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
             // 模拟停止逻辑
             Ok(())
         }

@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 
 /// CYC 成本均线指标结构体
 pub struct CYC {
@@ -68,8 +68,9 @@ impl CYC {
     /// 更新指定位置的 CYC 值
     fn update_cyc(&mut self, candles: &[Candle], index: usize) {
         // 计算价格*成交量和成交量
-        let price = candles[index].close; // 可用 (high + low + close) / 3 替代
-        let volume = candles[index].volume;
+        let index_candle= candles.get(index).unwrap();
+        let price = index_candle.close; // 可用 (high + low + close) / 3 替代
+        let volume =index_candle.volume;
         self.price_volume_sums.push(price * volume);
         self.volume_sums.push(volume);
 
@@ -198,16 +199,5 @@ impl CYC {
         } else {
             0
         }
-    }
-}
-
-// 为 CYC 实现 Debug trait 以便于打印调试信息
-impl std::fmt::Debug for CYC {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "CYC({}, {}, {})",
-            self.short_period, self.mid_period, self.long_period
-        )
     }
 }

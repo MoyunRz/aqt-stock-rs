@@ -2,14 +2,17 @@ use std::sync::Arc;
 use log::error;
 use longport::{decimal, Decimal, Market, QuoteContext, TradeContext};
 use longport::quote::{AdjustType, Candlestick, MarketTemperature, Period, TradeSessions, WatchlistGroup};
-use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, StockPositionsResponse, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
-use time::macros::datetime;
+use longport::trade::{AccountBalance, FundPositionChannel, FundPositionsResponse, GetHistoryOrdersOptions, GetTodayOrdersOptions, Order, OrderSide, OrderStatus, OrderType, StockPositionChannel, SubmitOrderOptions, SubmitOrderResponse, TimeInForceType};
+use time::macros::{datetime};
 use time::{Duration, OffsetDateTime};
+use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 /// `Service` 结构体用于封装 `QuoteContext` 和 `TradeContext`，提供统一的服务接口。
 pub struct Service {
     quote_ctx: Arc<QuoteContext>, // 引用计数的报价上下文
     trade_ctx: Arc<TradeContext>, // 引用计数的交易上下文
+    execution_lock: Arc<Mutex<()>>,
 }
 
 impl Service {
@@ -21,7 +24,8 @@ impl Service {
     /// # 返回值
     /// 返回一个初始化完成的 `Service` 实例。
     pub fn new(quote_ctx: Arc<QuoteContext>, trade_ctx: Arc<TradeContext>) -> Self {
-        Service { quote_ctx, trade_ctx }
+        let execution_lock = Arc::new(Mutex::new(()));
+        Service { quote_ctx, trade_ctx,execution_lock }
     }
 
     /// 获取历史订单列表。
@@ -36,26 +40,43 @@ impl Service {
     pub async fn get_history_orders(
         &self,
         symbol: &str,
-        start_at: Option<OffsetDateTime>,
-        end_at: Option<OffsetDateTime>,
-    ) -> Vec<Order> {
+        start_at: i64, // Unix timestamp in seconds
+        end_at: i64,   // Unix timestamp in seconds
+    ) ->( Vec<Order>,i64) {
+        let _guard = self.execution_lock.lock().await;
         let mut opts = GetHistoryOrdersOptions::new()
             .symbol(symbol)
-            .status([OrderStatus::Filled, OrderStatus::New])
-            .side(OrderSide::Buy)
+            .status([
+                OrderStatus::Filled,
+                OrderStatus::New,
+                OrderStatus::WaitToNew,
+                OrderStatus::NotReported,
+            ])
             .market(Market::US);
-        if let Some(start) = start_at {
+        if  start_at !=0 {
+            let start = OffsetDateTime::from_unix_timestamp(start_at).unwrap();
             opts = opts.start_at(start); // 设置查询开始时间
         }
-        if let Some(end) = end_at {
+        if  end_at !=0 {
+            let end = OffsetDateTime::from_unix_timestamp(end_at).unwrap();
             opts = opts.end_at(end); // 设置查询结束时间
         }
 
-        // 调用 `history_orders` 方法获取历史订单，若发生错误则打印错误信息并返回空向量。
-        self.trade_ctx.history_orders(opts).await.unwrap_or_else(|e| {
-            error!("获取历史订单出错: {}", e); // 直接打印错误信息
-            Vec::new() // 返回空的订单列表
-        })
+        // Call history_orders and handle errors
+        match self.trade_ctx.history_orders(opts).await {
+            Ok(resp) =>{
+                sleep(std::time::Duration::from_millis(300)).await;
+                // 按照时间降序
+                let mut sorted_resp = resp.clone();
+                sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+                (sorted_resp,1)
+            },
+            Err(e) => {
+                error!("Failed to fetch historical orders: {}", e);
+                sleep(std::time::Duration::from_millis(1000)).await;
+                (Vec::new(),0) // Return empty order list on error
+            }
+        }
     }
 
     /// 获取今日订单列表。
@@ -69,6 +90,7 @@ impl Service {
         &self,
         symbol: &str,
     ) -> Vec<Order> {
+        let _guard = self.execution_lock.lock().await;
         let opts = GetTodayOrdersOptions::new()
             .symbol(symbol)
             .status([OrderStatus::Filled, OrderStatus::New, OrderStatus::WaitToNew, OrderStatus::NotReported])
@@ -77,7 +99,12 @@ impl Service {
             error!("获取今日订单出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
-        resp
+        sleep(std::time::Duration::from_millis(500)).await;
+        //根据时间进行排序
+        // 按照时间降序
+        let mut sorted_resp = resp.clone();
+        sorted_resp.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+        sorted_resp
     }
 
     /// 提交订单。
@@ -96,6 +123,7 @@ impl Service {
         price: Decimal,
         quantity: Decimal,
     ) -> SubmitOrderResponse {
+        let _guard = self.execution_lock.lock().await;
         let mut submitted_price = price;
         if side.clone() == OrderSide::Buy{
             submitted_price = (price * decimal!(1.05)).round_dp(2);
@@ -113,6 +141,7 @@ impl Service {
             error!("下单出错: {}", e); // 直接打印错误信息
             SubmitOrderResponse { order_id: "".to_string() }
         });
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -123,10 +152,12 @@ impl Service {
     pub async fn account_balance(
         &self,
     ) -> Vec<AccountBalance> {
+        let _guard = self.execution_lock.lock().await;
         let resp = self.trade_ctx.account_balance(None).await.unwrap_or_else(|e| {
             error!("获取账户余额出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的列表
         });
+        sleep(std::time::Duration::from_millis(300)).await;
         resp
     }
 
@@ -141,9 +172,11 @@ impl Service {
         &self,
         order_id: String,
     ) {
+        let _guard = self.execution_lock.lock().await;
         let resp = self.trade_ctx.cancel_order(order_id).await.unwrap_or_else(|e| {
             error!("取消订单出错: {}", e); // 直接打印错误信息
         });
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
 
@@ -154,13 +187,17 @@ impl Service {
     pub async fn fund_positions(
         &self,
     ) -> Vec<FundPositionChannel> {
+        // 获取锁确保顺序执行
+        let _guard = self.execution_lock.lock().await;
         let resp = self.trade_ctx.fund_positions(None).await.unwrap_or_else(|e| {
-            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
+            error!("fund positions 获取账户持仓出错: {}", e); // 直接打印错误信息
             FundPositionsResponse { channels: Vec::new() }
         });
         if resp.channels.is_empty() {
+            sleep(std::time::Duration::from_secs(5)).await;
             return Vec::new();
         }
+        sleep(std::time::Duration::from_millis(500)).await;
         resp.channels
     }
 
@@ -170,15 +207,36 @@ impl Service {
     /// 返回一个包含账户持仓的响应。如果发生错误，则打印错误信息并返回一个空的持仓列表。
     pub async fn stock_positions(
         &self,
-    ) -> Vec<StockPositionChannel> {
-        let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
-            error!("获取账户持仓出错: {}", e); // 直接打印错误信息
-            StockPositionsResponse { channels: Vec::new() }
-        });
-        if resp.channels.is_empty() {
-            return Vec::new();
+    ) -> (Vec<StockPositionChannel>,bool) {
+        // 获取锁确保顺序执行
+        let _guard = self.execution_lock.lock().await;
+        let resps = self.trade_ctx.stock_positions(None).await;
+
+        match resps {
+            Ok(resps) => {
+                sleep(std::time::Duration::from_millis(500)).await;
+                if resps.channels.is_empty() {
+                    sleep(std::time::Duration::from_secs(15)).await;
+                    return (Vec::new(),true)
+                }
+                (resps.channels,true)
+            },
+            Err(e) => {
+                error!("stock positions 获取账户持仓出错: {}", e); // 直接打印错误信息
+                sleep(std::time::Duration::from_secs(5)).await;
+                (Vec::new(),false)
+            }
         }
-        resp.channels
+        // let resp = self.trade_ctx.stock_positions(None).await.unwrap_or_else(|e| {
+        //     error!("stock positions 获取账户持仓出错: {}", e); // 直接打印错误信息
+        //     StockPositionsResponse { channels: Vec::new() }
+        // });
+        // if resp.channels.is_empty() {
+        //     sleep(std::time::Duration::from_secs(15)).await;
+        //     return Vec::new();
+        // }
+        // sleep(std::time::Duration::from_millis(800)).await;
+        // resp.channels
     }
 
     /// 获取行情数据
@@ -212,16 +270,19 @@ impl Service {
             "1w" => pd = Period::Week,
             _ => pd = Period::UnknownPeriod
         }
+        let _guard = self.execution_lock.lock().await;
         let resp = self.quote_ctx.candlesticks(symbol, pd, count, adjust_type, trade_sessions).await.unwrap_or_else(|e| {
             error!("获取行情数据出错: {}", e); // 直接打印错误信息
             Vec::new() // 返回空的订单列表
         });
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
 
     pub async fn get_market_temperature(
         &self,
     ) -> MarketTemperature {
+        let _guard = self.execution_lock.lock().await;
         let resp = self.quote_ctx.market_temperature(Market::US).await.unwrap_or_else(|e| {
             error!("获取行情数据出错: {}", e); // 直接打印错误信息
             MarketTemperature {
@@ -232,6 +293,7 @@ impl Service {
                 timestamp: datetime!(2024-01-01 12:59:59.5 -5),
             }
         });
+        sleep(std::time::Duration::from_millis(500)).await;
         resp
     }
  
@@ -241,5 +303,33 @@ impl Service {
             Vec::new() // 返回空的订单列表
         });
         resp
+    }
+    pub async fn trading_days(&self) -> bool {
+        // 格式date!(2022 - 01 - 20)
+        // 获取今天的日期
+        let today = OffsetDateTime::now_utc().date();
+        let yesterday = today - Duration::days(1);
+        let tomorrow = OffsetDateTime::now_utc().date();
+
+        let resp = self.quote_ctx.trading_days(Market::US,yesterday, tomorrow).await;
+
+        match resp {
+            Ok(resp) => {
+                if resp.trading_days.is_empty() &&  resp.half_trading_days.is_empty(){
+                    false
+                }else {
+                    for day in resp.trading_days.iter() {
+                        if day.ne(&today) {
+                            return true;
+                        }
+                    }
+                   false
+                }
+            },
+            Err(e) => {
+                error!("获取交易日出错: {}", e); // 直接打印错误信息
+                false
+            }
+        }
     }
 }

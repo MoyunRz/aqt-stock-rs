@@ -19,7 +19,6 @@ impl Calculate {
     pub fn add_calculator(&mut self, calculator: Box<dyn BaseCalculate>) {
         self.calculators.push(calculator);
     }
-
     pub fn execute_rules(&self) -> i64 {
         // 传递对 calculators 的引用
         let mut  cul_res = Vec::new();

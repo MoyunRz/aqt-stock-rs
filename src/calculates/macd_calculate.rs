@@ -1,5 +1,5 @@
 use crate::calculates::base_calculate::BaseCalculate;
-use crate::indicators::candle::Candle;
+use crate::models::candle::Candle;
 use crate::indicators::macd::MACD;
 pub struct MacdCalculate {
     pub(crate) candles: Vec<Candle>,

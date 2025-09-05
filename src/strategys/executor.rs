@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::sync::Arc;
-use log::error;
+use std::time::Duration;
+use log::{error, info, warn};
 use longport::{QuoteContext, TradeContext};
 use tokio::sync::mpsc;
+use tokio::time::timeout; // 添加 sleep 导入
 use crate::models::market::MarketData;
 use crate::strategys::strategy::Strategy;
 
@@ -23,20 +25,38 @@ impl<T: Strategy + Send> Executor<T> {
         }
     }
 
-    // 运行执行器，接收市场数据并传递给内部策略
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        // 首先初始化内部策略
-        self.executor.run().await?;
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        info!("Starting executor...");
 
-        // 然后处理接收到的市场数据
-        while let Some(event) = self.quote_receiver.recv().await {
-            if let Err(e) = self.executor.execute(&event).await {
-                error!("Error executing strategy: {:?}", e);
+        self.executor.run().await?;
+        info!("Strategy initialized successfully");
+
+        let timeout_duration = Duration::from_secs(60); // 15分钟超时
+        
+
+        loop {
+            match timeout(timeout_duration, self.quote_receiver.recv()).await {
+                Ok(Some(event)) => {
+                    let symbol = event.symbol.clone();
+                    let execute_result = self.executor.execute(&event).await;
+                    if let Err(e) = execute_result {
+                        error!("Error executing strategy for symbol {}: {:?}", symbol, e);
+                    }
+                }
+                Ok(None) => {
+                    info!("Channel closed, executor shutting down");
+                    break;
+                }
+                Err(_) => {
+                    warn!("No message received for 60 secs, exiting");
+                    break;
+                }
             }
         }
-        // 最后停止内部策略
-        self.executor.stop()?;
 
+        info!("Stopping executor...");
+        self.executor.stop()?;
+        info!("Executor stopped successfully");
         Ok(())
     }
 }
