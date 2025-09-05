@@ -1,5 +1,3 @@
-#![feature(sized_hierarchy)]
-
 pub mod config;
 pub mod models;
 pub mod services;
