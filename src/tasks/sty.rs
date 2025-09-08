@@ -23,7 +23,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
             }
             Err(e) => {
                 error!("初始化长桥行情失败: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             }
         }
@@ -37,7 +37,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
             }
             Err(e) => {
                 error!("初始化长桥行情失败: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             }
         }
