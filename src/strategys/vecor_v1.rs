@@ -68,9 +68,6 @@ impl Strategy for VecorStrategy {
                     return Ok(());
                 }
             }
-            // 允许下单，更新时间
-            last_orders.insert(event.symbol.clone(), now_ts);
-
             let candles = self
                 .service
                 .get_candlesticks(event.symbol.clone(), sym.clone().period)
@@ -114,6 +111,8 @@ impl Strategy for VecorStrategy {
                     )
                     .await;
                 info!("{:?}", resp);
+                // 允许下单，更新时间
+                last_orders.insert(event.symbol.clone(), now_ts);
                 sleep(lock_delay).await;
                 return Ok(());
             }
@@ -193,6 +192,8 @@ impl Strategy for VecorStrategy {
                     .service
                     .submit_order(event.symbol.clone(), inds, market_px.clone(), quantity)
                     .await;
+                // 允许下单，更新时间
+                last_orders.insert(event.symbol.clone(), now_ts);
                 sleep(lock_delay).await;
                 info!("下单成功！！！ {:?}", resp);
             }
