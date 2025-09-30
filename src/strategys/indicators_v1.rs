@@ -95,25 +95,25 @@ impl IndicatorsV1 {
         let macd = Box::new(MacdCalculate {
             candles: candles.clone(),
         });
-        let ut_bot = Box::new(UTBotCalculate {
-            candles: candles.clone(),
-        });
-        let stc = Box::new(STCCalculate {
-            candles: candles.clone(),
-        });
         let cyc = Box::new(CycCalculate {
             candles: candles.clone(),
         });
         let techs = Box::new(TechnicalsCalculate {
             technicals: technicals.clone(),
         });
+        let stc = Box::new(STCCalculate {
+            candles: candles.clone(),
+        });
         // let chip = Box::new(ChipCalculate {
+        //     candles: candles.clone(),
+        // });
+        // let ut_bot = Box::new(UTBotCalculate {
         //     candles: candles.clone(),
         // });
         calculate.add_calculator(kdj);
         calculate.add_calculator(macd);
         calculate.add_calculator(stc);
-        calculate.add_calculator(ut_bot);
+        // calculate.add_calculator(ut_bot);
         calculate.add_calculator(cyc);
         calculate.add_calculator(techs);
         // calculate.add_calculator(chip);
