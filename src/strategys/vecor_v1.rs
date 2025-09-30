@@ -86,7 +86,7 @@ impl Strategy for VecorStrategy {
             }
 
 
-            let val = IndicatorsV1::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
+            // let val = IndicatorsV1::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
             // 下单
             // 获取用户的持仓
             let (positions,ok) = self.service.stock_positions().await;
@@ -99,7 +99,8 @@ impl Strategy for VecorStrategy {
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
 
-            if can_close && val <= 0.0 {
+            // if can_close && val <= 0.0 {
+            if can_close  {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -181,7 +182,8 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 数量为0直接返回
-                if quantity.is_zero() || (val <= 0.0) {
+                // if quantity.is_zero() || (val <= 0.0) {
+                if quantity.is_zero() {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
