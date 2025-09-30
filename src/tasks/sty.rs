@@ -15,7 +15,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
         let cfg = Arc::new(Config::from_env().unwrap());
         // 创建 QuoteContext 和 TradeContext 实例
         let quote_res = QuoteContext::try_new(cfg.clone()).await;
-        let mut quote_ctx: Arc<QuoteContext>;
+        let quote_ctx: Arc<QuoteContext>;
         match quote_res {
             Ok(quotes) => {
                 info!("初始化长桥行情成功");
@@ -29,7 +29,7 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
         }
         let trade_res = TradeContext::try_new(cfg.clone()).await;
 
-        let mut trade_ctx: Arc<TradeContext>;
+        let trade_ctx: Arc<TradeContext>;
         match trade_res {
             Ok(trades) => {
                 info!("初始化长桥行情成功");
