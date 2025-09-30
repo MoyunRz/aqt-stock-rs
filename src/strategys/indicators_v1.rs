@@ -5,7 +5,7 @@ use crate::calculates::kdj_calculate::KdjCalculate;
 use crate::calculates::macd_calculate::MacdCalculate;
 use crate::calculates::stc_calculate::STCCalculate;
 use crate::calculates::technicals_calculate::TechnicalsCalculate;
-use crate::calculates::utbot_calculate::UTBotCalculate;
+// use crate::calculates::utbot_calculate::UTBotCalculate;
 use crate::computes::calculate::Calculate;
 use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config::SymbolConfig;
