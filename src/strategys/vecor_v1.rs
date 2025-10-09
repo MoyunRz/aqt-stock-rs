@@ -86,7 +86,7 @@ impl Strategy for VecorStrategy {
             }
 
 
-            // let val = IndicatorsV1::fibonacci(candles_list.clone(),sym.clone().high, sym.clone().low);
+            let val = IndicatorsV1::fibonacci(candles_list.clone());
             // 下单
             // 获取用户的持仓
             let (positions,ok) = self.service.stock_positions().await;
@@ -99,8 +99,7 @@ impl Strategy for VecorStrategy {
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
             let is_ema = IndicatorsV1::is_close_ema(candles_list.clone(),5);
-            // if can_close && val <= 0.0 {
-            if can_close  && is_ema {
+            if can_close  && is_ema && val <= 0.0 {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -182,8 +181,7 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 数量为0直接返回
-                // if quantity.is_zero() || (val <= 0.0) {
-                if quantity.is_zero() {
+                if quantity.is_zero() || (val <= 0.0) {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
@@ -219,8 +217,6 @@ impl VecorStrategy {
                     symbol: cfg.symbol.clone(),
                     symbol_type: cfg.symbol_type.clone(),
                     volume: cfg.volume.clone(),
-                    high: cfg.high.clone(),
-                    low: cfg.low.clone(),
                     period: cfg.period.clone(),
                     tp_ratio: cfg.tp_ratio.clone(),
                     sl_ratio: cfg.sl_ratio.clone(),

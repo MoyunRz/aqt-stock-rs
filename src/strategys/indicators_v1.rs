@@ -18,7 +18,7 @@ pub struct IndicatorsV1 {}
 
 impl IndicatorsV1 {
 
-    #[warn(dead_code)]
+    // #[warn(dead_code)]
     pub fn fibonacci(candles: Vec<Candle>) -> f64 {
         let mut fib  = Fibonacci::new();
         // 计算周期内的斐波那契数列
