@@ -98,9 +98,9 @@ impl Strategy for VecorStrategy {
 
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
-
+            let is_ema = IndicatorsV1::is_close_ema(candles_list.clone(),5);
             // if can_close && val <= 0.0 {
-            if can_close  {
+            if can_close  && is_ema {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -289,27 +289,16 @@ impl VecorStrategy {
         // 获取当前价格和持仓成本价
         let cur_price = candle.last().unwrap().close;
         let cost_price = stock.cost_price;
-
         // 计算止盈价格（基于配置的止盈比例）
         let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
-
         // 如果当前价格高于止盈价格，并且前一个价格出现回落，则触发止盈条件
         if tp_ratio * cost_price < cur_price {
-            let prev_price = candle.get(candle.len() - 2).unwrap().close;
-
             let mut sym_str = sym.symbol;
             sym_str = sym_str.replace(".US", "");
             sym_str = format!("{}:{}", sym.symbol_type, sym_str);
-
             let technicals = TradingTechnicals::new(sym_str.as_str()).await;
             let (summary_signal,_,_) = technicals.clone().calculate();
-
             if summary_signal < 0f64 {
-                return true;
-            }
-
-            // 当前价格较前一个价格下跌超过0.1%，认为开始回撤，满足卖出条件
-            if (prev_price - cur_price) / prev_price > decimal!(0.001) {
                 return true;
             }
         }

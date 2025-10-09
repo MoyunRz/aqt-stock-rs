@@ -9,6 +9,7 @@ use crate::calculates::technicals_calculate::TechnicalsCalculate;
 use crate::computes::calculate::Calculate;
 use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config::SymbolConfig;
+use crate::indicators::ema::EMA;
 use crate::indicators::fibonacci::Fibonacci;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::candle::Candle;
@@ -17,14 +18,15 @@ pub struct IndicatorsV1 {}
 
 impl IndicatorsV1 {
 
-    pub fn fibonacci(candles: Vec<Candle>,high: f64, low: f64) -> f64 {
+    #[warn(dead_code)]
+    pub fn fibonacci(candles: Vec<Candle>) -> f64 {
         let mut fib  = Fibonacci::new();
-        // 计算60天的斐波那契数列
-        let mut h = high;
-        let mut l =  low;
+        // 计算周期内的斐波那契数列
         let pre_close = candles.clone().get(candles.len()-2).unwrap().close;
         let pre_open = candles.clone().get(candles.len()-2).unwrap().open;
         let mark_px = candles.clone().last().unwrap().close;
+        let mut h = mark_px.clone();
+        let mut l =  mark_px.clone();
         for candle in candles {
             // 看看有没有更高的high
             if candle.high > h {
@@ -125,5 +127,18 @@ impl IndicatorsV1 {
             return OrderSide::Sell;
         }
         OrderSide::Unknown
+    }
+    pub fn is_close_ema(candles: Vec<Candle>, period: usize)-> bool {
+        let mut make_ema  = EMA::new();
+        let emas = make_ema.calculate(&candles.clone(),period);
+
+        if emas.len() > 0 {
+            let close = candles.last().unwrap().close;
+            let ema = emas.last().unwrap();
+            if close < ema.unwrap() {
+                return true;
+            }
+        }
+        false
     }
 }
