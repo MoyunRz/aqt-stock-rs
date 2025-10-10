@@ -52,7 +52,7 @@ impl Strategy for VecorStrategy {
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
         let is_run_time = helpers::do_run_time();
         if !is_run_time {
-            info!("当前时间不在运行时间段内，休眠15秒");
+            // info!("当前时间不在运行时间段内，休眠15秒");
             tokio::time::sleep(Duration::from_secs(60)).await;
             return Ok(());
         }
