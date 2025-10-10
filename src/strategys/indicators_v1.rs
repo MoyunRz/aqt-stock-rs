@@ -11,6 +11,7 @@ use crate::computes::defult_rules::{CulRules, DefultRules};
 use crate::config::config::SymbolConfig;
 use crate::indicators::ema::EMA;
 use crate::indicators::fibonacci::Fibonacci;
+use crate::indicators::hma::HMA;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::candle::Candle;
 
@@ -128,14 +129,24 @@ impl IndicatorsV1 {
         }
         OrderSide::Unknown
     }
+
     pub fn is_close_ema(candles: Vec<Candle>, period: usize)-> bool {
         let mut make_ema  = EMA::new();
+        let mut make_hma  = HMA::new();
         let emas = make_ema.calculate(&candles.clone(),period);
-
-        if emas.len() > 0 {
+        let hmas = make_hma.calculate(&candles.clone(),period);
+        if emas.len() > 0 || hmas.len() > 0{
+            // 获取candles 前一个 close
+            let pre_close = candles.clone().get(candles.len()-2).unwrap().close;
             let close = candles.last().unwrap().close;
             let ema = emas.last().unwrap();
-            if close < ema.unwrap() {
+            let hma = hmas.last().unwrap();
+
+            if pre_close > hma.clone() && close < hma.clone() {
+                return true;
+            }
+
+            if pre_close > ema.unwrap() && close < ema.unwrap() {
                 return true;
             }
         }

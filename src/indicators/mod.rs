@@ -7,4 +7,5 @@ pub mod tradingview_technicals;
 pub mod fibonacci;
 pub mod chip_distribution;
 pub mod ema;
+pub mod hma;
 

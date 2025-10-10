@@ -285,9 +285,10 @@ impl VecorStrategy {
         // 获取当前价格和持仓成本价
         let cur_price = candle.last().unwrap().close;
         let cost_price = stock.cost_price;
-        // 计算止盈价格（基于配置的止盈比例）
+        // 计算止盈价格（基于配置的止盈比例）10 * 0.01 + 1 =1.01
         let tp_ratio = decimal!(sym.tp_ratio) * decimal!(0.01) + decimal!(1);
         // 如果当前价格高于止盈价格，并且前一个价格出现回落，则触发止盈条件
+        // 平均开盘价格 * 收益率 1.01  < 市场价格
         if tp_ratio * cost_price < cur_price {
             let mut sym_str = sym.symbol;
             sym_str = sym_str.replace(".US", "");
