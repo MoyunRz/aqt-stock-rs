@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use crate::strategys::indicators_v1::IndicatorsV1;
+use crate::utils::helpers;
 
 /// VecorStrategy 结构体实现了 Strategy trait，用于执行具体的交易策略
 pub struct VecorStrategy {
@@ -49,6 +50,14 @@ impl Strategy for VecorStrategy {
 
     /// 异步执行策略逻辑，处理传入的市场数据
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
+        let is_run_time = helpers::do_run_time();
+        if !is_run_time {
+            info!("当前时间不在运行时间段内，休眠15秒");
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            return Ok(());
+        }
+        info!("初始化长桥配置");
+
         // 获取信息
         let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
         // // 判断当前的数据时间

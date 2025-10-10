@@ -10,7 +10,7 @@ use tokio::sync::oneshot;
 
 pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>> {
     loop {
-        info!("初始化长桥配置");
+        
         // 初始化长桥配置
         let cfg = Arc::new(Config::from_env().unwrap());
         // 创建 QuoteContext 和 TradeContext 实例
@@ -82,3 +82,5 @@ pub async fn start_sty(config: Configs) -> Result<(), Box<dyn std::error::Error>
         tokio::time::sleep(std::time::Duration::from_secs(15)).await;
     }
 }
+
+
