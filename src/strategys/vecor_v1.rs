@@ -56,7 +56,7 @@ impl Strategy for VecorStrategy {
             tokio::time::sleep(Duration::from_secs(60)).await;
             return Ok(());
         }
-        info!("初始化长桥配置");
+        // info!("初始化长桥配置");
 
         // 获取信息
         let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
