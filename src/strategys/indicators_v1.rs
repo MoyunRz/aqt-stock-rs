@@ -14,6 +14,8 @@ use crate::indicators::fibonacci::Fibonacci;
 use crate::indicators::hma::HMA;
 use crate::indicators::tradingview_technicals::TradingTechnicals;
 use crate::models::candle::Candle;
+use crate::services::service::Service;
+use crate::strategys::ai::{ai_prediction,indicator};
 
 pub struct IndicatorsV1 {}
 
@@ -127,6 +129,25 @@ impl IndicatorsV1 {
         if res < 0 {
             return OrderSide::Sell;
         }
+        OrderSide::Unknown
+    }
+
+    pub async fn handler_ai_indicators(service: &Service, symbol: &str) -> OrderSide {
+        let inobj = indicator::build_inobj(service, symbol).await.unwrap();
+        let chat_content = ai_prediction::ds_prediction(symbol, &inobj).await;
+
+        match chat_content {
+            Some(content) => {
+                if content.action == "BUY" {
+                    return OrderSide::Buy;
+                }
+                if content.action == "SELL" {
+                    return OrderSide::Sell;
+                }
+            },
+            None => {}
+        }
+
         OrderSide::Unknown
     }
 

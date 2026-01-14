@@ -27,13 +27,8 @@ impl<T: Strategy + Send> Executor<T> {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Starting executor...");
-
         self.executor.run().await?;
-        info!("Strategy initialized successfully");
-
         let timeout_duration = Duration::from_secs(60); // 15分钟超时
-        
-
         loop {
             match timeout(timeout_duration, self.quote_receiver.recv()).await {
                 Ok(Some(event)) => {

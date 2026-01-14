@@ -52,21 +52,17 @@ impl Strategy for VecorStrategy {
     async fn execute(&mut self, event: &MarketData) -> Result<(), Box<dyn Error + Send + Sync>>{
         let is_run_time = helpers::do_run_time();
         if !is_run_time {
-            // info!("当前时间不在运行时间段内，休眠15秒");
             tokio::time::sleep(Duration::from_secs(60)).await;
             return Ok(());
         }
-        // info!("初始化长桥配置");
-
         // 获取信息
         let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
-        // // 判断当前的数据时间
-        // let pd = get_time_by_period(sym.clone().period.as_str());
-        let pd = 60;
+        // 判断当前的数据时间
+        let pd = 60*60;
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线
-        // 判断当前价格不为零，并且时间戳是60000毫秒（即15分钟）的整数倍时才处理
+        // 判断当前价格不为零
         if !market_px.is_zero() && ts % pd <= 3 {
             let lock_delay = Duration::from_secs(5); // 锁延迟释放时间，例如 2 秒
             let mut last_orders = self.last_order_time.lock().await;
@@ -93,10 +89,6 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 return Ok(());
             }
-
-
-            let val = IndicatorsV1::fibonacci(candles_list.clone());
-            // 下单
             // 获取用户的持仓
             let (positions,ok) = self.service.stock_positions().await;
             if !ok {
@@ -104,11 +96,9 @@ impl Strategy for VecorStrategy {
                 return Ok(());
             }
             let sym_position = VecorStrategy::handler_positions(positions, event.symbol.clone());
-
             // TODO 判断是否达到收益预期 进行回撤、仓位判断 决定是否抛售
             let can_close = VecorStrategy::handler_close_position(sym.clone(), candles, sym_position.clone()).await;
-            let is_ema = IndicatorsV1::is_close_ema(candles_list.clone(),5);
-            if can_close  && is_ema && val <= 0.0 {
+            if can_close {
                 info!("{:?}", market_px.clone());
                 let resp = self
                     .service
@@ -125,8 +115,9 @@ impl Strategy for VecorStrategy {
                 sleep(lock_delay).await;
                 return Ok(());
             }
+
             // TODO 聚合技术判断
-            let inds = IndicatorsV1::handler_indicators(candles_list, sym.clone()).await;
+            let inds = IndicatorsV1::handler_ai_indicators(&self.service, &event.symbol.clone()).await;
             info!("对{} 进行技术指标聚合判断:{}", event.symbol.clone(), inds);
             if inds == OrderSide::Buy
                 && !sym_position.cost_price.is_zero()
@@ -190,7 +181,7 @@ impl Strategy for VecorStrategy {
                 }
 
                 // 数量为0直接返回
-                if quantity.is_zero() || (val <= 0.0) {
+                if quantity.is_zero() {
                     sleep(lock_delay).await;
                     return Ok(());
                 }
