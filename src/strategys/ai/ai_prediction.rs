@@ -1,11 +1,9 @@
 use std::env;
 
-use log::{error, warn};
+use log::{warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::services::service::Service;
 use crate::strategys::ai::doc::{AI_TEMP, SYSTEM_MESSAGE};
-use crate::strategys::ai::indicator::build_inobj;
 use crate::strategys::ai::model::{ChatContent, InObj};
 
 #[derive(Serialize)]

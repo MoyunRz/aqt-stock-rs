@@ -58,7 +58,7 @@ impl Strategy for VecorStrategy {
         // 获取信息
         let sym = VecorStrategy::get_sym_info(self.sym_config.clone(), event.symbol.clone());
         // 判断当前的数据时间
-        let pd = 60*60;
+        let pd = 60*60*2;
         let ts = event.ts.clone().unix_timestamp();
         let market_px = event.price.clone();
         // 只处理收尾的K线

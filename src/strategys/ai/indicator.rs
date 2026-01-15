@@ -163,8 +163,8 @@ fn build_inobj_from_candles(candles_4h: Vec<Candle>, candles_15m: Vec<Candle>) -
 
 pub async fn build_inobj(service: &Service, symbol: &str) -> Option<InObj> {
     let (candles_4h, candles_15m) = tokio::join!(
-        fetch_candles(service, symbol, "4h"),
-        fetch_candles(service, symbol, "15m")
+        fetch_candles(service, symbol, "1d"),
+        fetch_candles(service, symbol, "2h")
     );
     build_inobj_from_candles(candles_4h, candles_15m)
 }
