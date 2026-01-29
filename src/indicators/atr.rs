@@ -1,4 +1,5 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
 
 pub struct ATR;
 
@@ -37,12 +38,12 @@ impl ATR {
         for i in 0..period {
             sum += trs[i];
         }
-        let mut prev_atr = sum / period as f64;
+        let mut prev_atr = round_precision(sum / period as f64);
         atr[period - 1] = Some(prev_atr);
 
         for i in period..len {
             let tr = trs[i];
-            prev_atr = (prev_atr * (period as f64 - 1.0) + tr) / period as f64;
+            prev_atr = round_precision((prev_atr * (period as f64 - 1.0) + tr) / period as f64);
             atr[i] = Some(prev_atr);
         }
 

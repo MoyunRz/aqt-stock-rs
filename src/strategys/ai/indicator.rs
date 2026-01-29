@@ -3,6 +3,7 @@ use crate::indicators::ema::EMA;
 use crate::indicators::macd::MACD;
 use crate::indicators::rsi::RSI;
 use crate::indicators::sma::SMA;
+use crate::indicators::utils::round_precision;
 use crate::models::candle::Candle;
 use crate::services::service::Service;
 use crate::strategys::ai::model::{AtrData, Candlestick as AICandlestick, InObj, Indicators, MacdData};
@@ -59,8 +60,8 @@ fn build_atr_data(candles: &[Candle], period: usize) -> Vec<AtrData> {
     for (i, atr_opt) in atr_vals.iter().enumerate() {
         if let Some(atr) = atr_opt {
             result.push(AtrData {
-                tr: trs[i],
-                atr: *atr,
+                tr: round_precision(trs[i]),
+                atr: round_precision(*atr),
             });
         }
     }
@@ -115,20 +116,52 @@ fn build_indicators(candles: &[Candle]) -> Option<Indicators> {
     let atr14 = build_atr_data(candles, 14);
     
     Some(Indicators {
-        k_data: if k_data.len() > 32 {
-            k_data[k_data.len() - 32..].to_string()
+        k_data: if k_data.len() > 24 {
+            k_data[k_data.len() - 24..].to_string()
         } else {
             k_data
         },
-        macd: macd_vec,
+        macd: if macd_vec.len() > 24 {
+            macd_vec[macd_vec.len() - 24..].to_vec()
+        } else {
+            macd_vec
+        },
         kdj: Vec::new(),
-        rsi7,
-        rsi14,
-        ema,
-        sma,
-        vol: volumes,
-        atr3,
-        atr14,
+        rsi7:if rsi7.len() > 24 {
+            rsi7[rsi7.len() - 24..].to_vec()
+        } else {
+            rsi7
+        },
+        rsi14:if rsi14.len() > 24 {
+            rsi14[rsi14.len() - 24..].to_vec()
+        } else {
+            rsi14
+        },
+        ema: if ema.len() > 24 {
+            ema[ema.len() - 24..].to_vec()
+        } else {
+            ema
+        },
+        sma: if sma.len() > 24 {
+            sma[sma.len() - 24..].to_vec()
+        } else {
+            sma
+        },
+        vol: if volumes.len() > 24 {
+            volumes[volumes.len() - 24..].to_vec()
+        } else {
+            volumes
+        },
+        atr3: if atr3.len() > 24 {
+            atr3[atr3.len() - 24..].to_vec()
+        } else {
+            atr3
+        },
+        atr14: if atr14.len() > 24 {
+            atr14[atr14.len() - 24..].to_vec()
+        } else {
+            atr14
+        },
     })
 }
 
@@ -224,6 +257,37 @@ mod tests {
         assert_eq!(res.mark_px, last_close);
         assert!(res.ind3.is_some());
         assert!(res.ind4.is_some());
+    }
+
+    #[test]
+    fn test_build_atr_data_precision() {
+        let candles = sample_candles(20);
+        let atr_data = build_atr_data(&candles, 14);
+        
+        // 验证返回的数据不为空
+        assert!(!atr_data.is_empty());
+        
+        // 验证精度处理 - 检查数值是否有合理的范围和精度
+        for atr_item in &atr_data {
+            // TR 和 ATR 值应该是合理的正数
+            assert!(atr_item.tr > 0.0);
+            assert!(atr_item.atr > 0.0);
+            
+            // 验证精度 - 不应该有过多的小数位
+            let tr_str = format!("{}", atr_item.tr);
+            let atr_str = format!("{}", atr_item.atr);
+            
+            // 检查小数点后的位数不超过4位
+            if let Some(dot_pos) = tr_str.find('.') {
+                let decimal_places = tr_str.len() - dot_pos - 1;
+                assert!(decimal_places <= 4, "TR value {} has too many decimal places: {}", tr_str, decimal_places);
+            }
+            
+            if let Some(dot_pos) = atr_str.find('.') {
+                let decimal_places = atr_str.len() - dot_pos - 1;
+                assert!(decimal_places <= 4, "ATR value {} has too many decimal places: {}", atr_str, decimal_places);
+            }
+        }
     }
 
     #[tokio::test]

@@ -1,4 +1,5 @@
 use std::env;
+use std::time::Duration;
 
 use log::{warn};
 use reqwest::Client;
@@ -36,7 +37,7 @@ struct ChatMessageContent {
 pub async fn request_ai(prompt: &str) -> Option<ChatContent> {
 
     let api_key = env::var("DASHSCOPE_API_KEY").unwrap_or_else(|_| "sk-841c07f088564912ac97416bc091150f".to_string());
-    let model = env::var("BAILIAN_MODEL").unwrap_or_else(|_| "qwen3-max-preview".to_string());
+    let model = env::var("BAILIAN_MODEL").unwrap_or_else(|_| "deepseek-v3.2".to_string());
 
     let api_base = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions".to_string();
     let req_body = ChatRequest {
@@ -53,18 +54,34 @@ pub async fn request_ai(prompt: &str) -> Option<ChatContent> {
         ],
     };
 
-    let client = Client::new();
-    let resp = match client
-        .post(&api_base)
-        .bearer_auth(api_key)
-        .json(&req_body)
-        .send()
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("调用百炼接口失败: {}", e);
-            return None;
+    // 创建带超时设置的客户端
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap_or_else(|_| Client::new());
+    
+    // 重试机制：最多重试3次
+    let max_retries = 3;
+    let mut retry_count = 0;
+    let resp = loop {
+        match client
+            .post(&api_base)
+            .bearer_auth(api_key.clone())
+            .json(&req_body)
+            .send()
+            .await
+        {
+            Ok(r) => break r,
+            Err(e) => {
+                retry_count += 1;
+                if retry_count >= max_retries {
+                    warn!("调用百炼接口失败，已重试{}次: {}", max_retries, e);
+                    return None;
+                }
+                warn!("调用百炼接口失败，第{}次重试: {}", retry_count, e);
+                // 等待一段时间再重试
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+            }
         }
     };
 

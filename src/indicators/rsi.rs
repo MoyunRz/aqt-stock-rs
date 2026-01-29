@@ -1,4 +1,5 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
 
 pub struct RSI;
 
@@ -48,7 +49,7 @@ impl RSI {
             rsi[period] = Some(100.0);
         } else {
             let rs = avg_gain / avg_loss;
-            rsi[period] = Some(100.0 - 100.0 / (1.0 + rs));
+            rsi[period] = Some(round_precision(100.0 - 100.0 / (1.0 + rs)));
         }
 
         for i in (period + 1)..len {
@@ -59,7 +60,7 @@ impl RSI {
                 rsi[i] = Some(100.0);
             } else {
                 let rs = avg_gain / avg_loss;
-                rsi[i] = Some(100.0 - 100.0 / (1.0 + rs));
+                rsi[i] = Some(round_precision(100.0 - 100.0 / (1.0 + rs)));
             }
         }
 

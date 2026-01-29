@@ -1,4 +1,6 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
+
 pub struct MACD {
     fast_length: usize,
     slow_length: usize,
@@ -75,17 +77,20 @@ impl MACD {
         let fast_ma = Self::calculate_ema(&prices, self.fast_length);
         let slow_ma = Self::calculate_ema(&prices, self.slow_length);
 
-        // 计算MACD线
+        // 计算MACD线并应用精度处理
         self.macd_line = fast_ma.iter().zip(slow_ma.iter())
-            .map(|(fast, slow)| fast - slow)
+            .map(|(fast, slow)| round_precision(fast - slow))
             .collect();
 
-        // 计算信号线 (使用SMA)
-        self.signal_line = Self::calculate_sma(&self.macd_line, self.signal_length);
+        // 计算信号线 (使用SMA)并应用精度处理
+        self.signal_line = Self::calculate_sma(&self.macd_line, self.signal_length)
+            .into_iter()
+            .map(round_precision)
+            .collect();
 
-        // 计算直方图
+        // 计算直方图并应用精度处理
         self.histogram = self.macd_line.iter().zip(self.signal_line.iter())
-            .map(|(macd, signal)| macd - signal)
+            .map(|(macd, signal)| round_precision(macd - signal))
             .collect();
 
         // 生成交叉信号

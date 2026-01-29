@@ -1,4 +1,5 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
 
 pub struct SMA;
 
@@ -26,7 +27,7 @@ impl SMA {
                 sum -= candles[i - period].close;
             }
             if i + 1 >= period {
-                result[i] = Some(sum / period as f64);
+                result[i] = Some(round_precision(sum / period as f64));
             }
         }
 

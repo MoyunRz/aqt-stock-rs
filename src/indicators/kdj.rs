@@ -1,5 +1,6 @@
 use std::vec;
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
 
 /// KDJ 指标结构体
 pub struct KDJ {
@@ -75,22 +76,22 @@ impl KDJ {
 
         // 计算K值 (第一个K值使用50作为初始值，后续使用SMA平滑)
         let k = if self.k_values.is_empty() {
-            (rsv + 2.0 * 50.0) / 3.0
+            round_precision((rsv + 2.0 * 50.0) / 3.0)
         } else {
-            (rsv + (self.d_period as f64 - 1.0) * self.k_values.last().unwrap()) / self.d_period as f64
+            round_precision((rsv + (self.d_period as f64 - 1.0) * self.k_values.last().unwrap()) / self.d_period as f64)
         };
         self.k_values.push(k);
 
         // 计算D值 (第一个D值使用50作为初始值，后续使用SMA平滑)
         let d = if self.d_values.is_empty() {
-            (k + 2.0 * 50.0) / 3.0
+            round_precision((k + 2.0 * 50.0) / 3.0)
         } else {
-            (k + (self.d_period as f64 - 1.0) * self.d_values.last().unwrap()) / self.d_period as f64
+            round_precision((k + (self.d_period as f64 - 1.0) * self.d_values.last().unwrap()) / self.d_period as f64)
         };
         self.d_values.push(d);
 
         // 计算J值
-        let j = self.j_period as f64 * k - 2.0 * d;
+        let j = round_precision(self.j_period as f64 * k - 2.0 * d);
         self.j_values.push(j);
     }
 

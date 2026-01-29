@@ -11,4 +11,5 @@ pub mod hma;
 pub mod sma;
 pub mod atr;
 pub mod rsi;
+pub mod utils;
 

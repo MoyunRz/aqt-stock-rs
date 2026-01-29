@@ -1,4 +1,5 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
 
 pub struct EMA {}
 
@@ -35,11 +36,11 @@ impl EMA {
         sma /= period as f64;
         ema[period - 1] = Some(sma);
 
-        // 计算后续EMA值
+        // 计算后续EMA值并应用精度处理
         for i in period..candles.len() {
             let prev_ema = ema[i - 1].unwrap();
             let current_ema = (candles[i].close * multiplier) + (prev_ema * (1.0 - multiplier));
-            ema[i] = Some(current_ema);
+            ema[i] = Some(round_precision(current_ema));
         }
         ema
     }

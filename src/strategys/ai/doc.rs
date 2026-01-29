@@ -27,4 +27,4 @@ ATR(3/14):%+v/%+v
 3.开仓必填止盈损
 "#;
 
-pub const SYSTEM_MESSAGE: &str = "你资深量化分析师。根据1D和2H的K线及MACD/RSI/EMA/SMA/ATR指标分析行情，输出JSON交易决策。";
+pub const SYSTEM_MESSAGE: &str = "你是资深量化分析师，可以根据1D和2H的K线及MACD/RSI/EMA/SMA/ATR指标分析行情，输出JSON交易决策。";

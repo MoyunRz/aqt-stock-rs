@@ -1,4 +1,6 @@
 use crate::models::candle::Candle;
+use crate::indicators::utils::round_precision;
+
 /// HMA 指标计算器
 pub struct HMA {
     pub values: Vec<f64>, // 存储计算出的 HMA 值
@@ -27,7 +29,7 @@ impl HMA {
                 weight_sum += w;
             }
 
-            result.push(sum / weight_sum);
+            result.push(round_precision(sum / weight_sum));
         }
         result
     }
@@ -53,12 +55,14 @@ impl HMA {
         // Step 2: 计算 2 * WMA(n/2) - WMA(n)
         let mut wma_diff = Vec::new();
         for i in 0..wma_half.len().min(wma_full.len()) {
-            wma_diff.push(2.0 * wma_half[i] - wma_full[i]);
+            wma_diff.push(round_precision(2.0 * wma_half[i] - wma_full[i]));
         }
 
         // Step 3: 对结果计算周期为 sqrt(n) 的 WMA
         let sqrt_period = (period as f64).sqrt().floor() as usize;
-        self.values = Self::wma(&wma_diff, sqrt_period);
+        let raw_values = Self::wma(&wma_diff, sqrt_period);
+        // 对最终结果应用精度处理
+        self.values = raw_values.into_iter().map(round_precision).collect();
 
         // 返回 HMA 值
         &self.values
