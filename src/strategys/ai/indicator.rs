@@ -68,25 +68,20 @@ fn build_atr_data(candles: &[Candle], period: usize) -> Vec<AtrData> {
 }
 
 fn build_indicators(candles: &[Candle]) -> Option<Indicators> {
-    let keep = 10usize;
     let len = candles.len();
-    if len < keep {
+    if len == 0 {
         return None;
     }
-    let start = len.saturating_sub(keep);
-    let candles_tail = &candles[start..];
-
+    let candles_tail = candles;
     let k_data = build_k_data(candles_tail);
-    let volumes: Vec<f64> = candles_tail.iter().map(|c| c.volume).collect();
+    let volumes: Vec<f64> = candles.iter().map(|c| c.volume).collect();
     let mut macd = MACD::new(12, 26, 9);
     let _ = macd.calculate(candles);
     let macd_line = macd.macd_line();
     let signal_line = macd.signal_line();
     let hist = macd.histogram();
-    let macd_len = macd_line.len();
-    let macd_start = macd_len.saturating_sub(keep);
     let mut macd_vec = Vec::new();
-    for i in macd_start..macd_len {
+    for i in 0..macd_line.len() {
         let dif = macd_line[i];
         let dea = signal_line.get(i).cloned().unwrap_or(0.0);
         let m = hist.get(i).cloned().unwrap_or(0.0);
@@ -96,45 +91,35 @@ fn build_indicators(candles: &[Candle]) -> Option<Indicators> {
     let rsi7_raw = rsi7_calc.calculate(candles, 7);
     let rsi7: Vec<f64> = rsi7_raw
         .iter()
-        .skip(start)
         .filter_map(|v| *v)
         .collect();
     let mut rsi14_calc = RSI::default();
     let rsi14_raw = rsi14_calc.calculate(candles, 14);
     let rsi14: Vec<f64> = rsi14_raw
         .iter()
-        .skip(start)
         .filter_map(|v| *v)
         .collect();
     let mut ema_calc = EMA::default();
     let ema_raw = ema_calc.calculate(candles, 5);
     let ema: Vec<f64> = ema_raw
         .iter()
-        .skip(start)
         .filter_map(|v| *v)
         .collect();
     let mut sma_calc = SMA::default();
     let sma_raw = sma_calc.calculate(candles, 5);
     let sma: Vec<f64> = sma_raw
         .iter()
-        .skip(start)
         .filter_map(|v| *v)
         .collect();
     let atr3 = build_atr_data(candles, 3);
     let atr14 = build_atr_data(candles, 14);
-    let atr3 = if atr3.len() > keep {
-        atr3[atr3.len().saturating_sub(keep)..].to_vec()
-    } else {
-        atr3
-    };
-    let atr14 = if atr14.len() > keep {
-        atr14[atr14.len().saturating_sub(keep)..].to_vec()
-    } else {
-        atr14
-    };
     
     Some(Indicators {
-        k_data,
+        k_data: if k_data.len() > 32 {
+            k_data[k_data.len() - 32..].to_string()
+        } else {
+            k_data
+        },
         macd: macd_vec,
         kdj: Vec::new(),
         rsi7,
@@ -212,13 +197,12 @@ mod tests {
         assert!(!ind.sma.is_empty());
         assert!(!ind.atr3.is_empty());
         assert!(!ind.atr14.is_empty());
-        let expected = std::cmp::min(10, candles.len());
-        assert_eq!(ind.vol.len(), expected);
+        assert_eq!(ind.vol.len(), candles.len());
     }
 
     #[test]
-    fn test_build_indicators_returns_none_when_less_than_10() {
-        let candles = sample_candles(5);
+    fn test_build_indicators_returns_none_when_empty() {
+        let candles = Vec::new();
         let ind = build_indicators(&candles);
         assert!(ind.is_none());
     }
