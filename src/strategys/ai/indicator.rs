@@ -132,33 +132,33 @@ fn build_indicators(candles: &[Candle]) -> Option<Indicators> {
         } else {
             rsi7
         },
-        rsi14:if rsi14.len() > 24 {
-            rsi14[rsi14.len() - 24..].to_vec()
+        rsi14:if rsi14.len() > 12 {
+            rsi14[rsi14.len() - 12..].to_vec()
         } else {
             rsi14
         },
-        ema: if ema.len() > 24 {
-            ema[ema.len() - 24..].to_vec()
+        ema: if ema.len() > 12 {
+            ema[ema.len() - 12..].to_vec()
         } else {
             ema
         },
-        sma: if sma.len() > 24 {
-            sma[sma.len() - 24..].to_vec()
+        sma: if sma.len() > 12 {
+            sma[sma.len() - 12..].to_vec()
         } else {
             sma
         },
-        vol: if volumes.len() > 24 {
-            volumes[volumes.len() - 24..].to_vec()
+        vol: if volumes.len() > 12 {
+            volumes[volumes.len() - 12..].to_vec()
         } else {
             volumes
         },
-        atr3: if atr3.len() > 24 {
-            atr3[atr3.len() - 24..].to_vec()
+        atr3: if atr3.len() > 12 {
+            atr3[atr3.len() - 12..].to_vec()
         } else {
             atr3
         },
-        atr14: if atr14.len() > 24 {
-            atr14[atr14.len() - 24..].to_vec()
+        atr14: if atr14.len() > 12 {
+            atr14[atr14.len() - 12..].to_vec()
         } else {
             atr14
         },
